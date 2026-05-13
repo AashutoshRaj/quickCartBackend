@@ -65,33 +65,41 @@ export const sendOTP = async (req, res, next) => {
 
 export const verifyOTP = async (req, res, next) => {
   try {
-    const { phoneNumber, otp } = req.body;
+    const { accessToken } = req.body;
 
-    if (!phoneNumber || !otp) {
-      return next(new AppError('Please provide phone number and OTP!', 400));
+    if (!accessToken) {
+      return next(new AppError('Please provide the access token!', 400));
     }
 
-    // 1) Find user with matching phone and non-expired OTP
-    const user = await User.findOne({
-      phoneNumber,
-      otpExpires: { $gt: Date.now() },
-    }).select('+otp +otpExpires');
-
-    if (!user) {
-      return next(new AppError('Invalid or expired OTP', 400));
-    }
-
-    // 2) Compare OTP value
-    if (user.otp !== otp) {
-      return next(new AppError('Invalid OTP', 400));
-    }
-
-    // 3) Clear OTP fields using $unset (more reliable than setting to undefined)
-    await User.findByIdAndUpdate(user._id, {
-      $unset: { otp: '', otpExpires: '' },
+    // 1) Verify access token with MSG91
+    const response = await fetch('https://control.msg91.com/api/v5/widget/verifyAccessToken', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        authkey: process.env.MSG91_AUTH_KEY,
+        'access-token': accessToken,
+      }),
     });
 
-    // 4) Send token
+    const data = await response.json();
+
+    if (data.status !== 'success') {
+      return next(new AppError(data.message || 'OTP verification failed', 400));
+    }
+
+    // 2) Get verified phone number from MSG91 response
+    // MSG91 returns verified mobile in data.mobile
+    const phoneNumber = data.data.mobile;
+
+    // 3) Find or create user with this phone number
+    let user = await User.findOne({ phoneNumber });
+    if (!user) {
+      user = await User.create({ phoneNumber });
+    }
+
+    // 4) Send JWT token
     createSendToken(user, 200, res);
   } catch (err) {
     next(err);

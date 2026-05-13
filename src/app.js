@@ -1,5 +1,5 @@
 import express from 'express';
-import cors from 'cors';
+import   from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
@@ -12,8 +12,24 @@ import apiRouter from './routes/index.js';
 const app = express();
 
 // 1) GLOBAL MIDDLEWARES
+// Implement CORS
+app.use(cors());
+
 // Set security HTTP headers
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://control.msg91.com"],
+        frameSrc: ["'self'", "https://control.msg91.com", "https://*.hcaptcha.com"],
+        connectSrc: ["'self'", "https://control.msg91.com"],
+        imgSrc: ["'self'", "data:", "https://control.msg91.com", "https://*.hcaptcha.com"],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+  })
+);
 
 // Development logging
 if (process.env.NODE_ENV === 'development') {
@@ -32,8 +48,8 @@ app.use('/api', limiter);
 app.use(express.json({ limit: '10kb' }));
 app.use(cookieParser());
 
-// Data sanitization against XSS and CORS
-app.use(cors());
+// Data sanitization against XSS
+// app.use(xss()); // If you have xss-clean installed
 
 // 2) ROUTES
 app.use('/api/v1', apiRouter);
