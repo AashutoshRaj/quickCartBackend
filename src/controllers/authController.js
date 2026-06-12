@@ -18,6 +18,17 @@ const signToken = (id) => {
   });
 };
 
+const signRegistrationToken = (phoneNumber) => {
+  return jwt.sign(
+    {
+      phoneNumber,
+      purpose: 'phone_registration',
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: '10m' }
+  );
+};
+
 const createSendToken = (user, statusCode, res) => {
   const token = signToken(user._id);
   const cookieOptions = {
@@ -40,6 +51,26 @@ const createSendToken = (user, statusCode, res) => {
   });
 };
 
+export const checkPhoneNumber = async (req, res, next) => {
+  try {
+    const phoneNumber = normalizeIndianPhoneNumber(req.body.phone || req.body.phoneNumber);
+
+    if (!phoneNumber) {
+      return next(new AppError('Please provide a valid 10-digit phone number.', 400));
+    }
+
+    const user = await User.findOne({ phoneNumber }).select('_id');
+
+    res.status(200).json({
+      status: 'success',
+      success: true,
+      isRegistered: !!user,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const sendOTP = async (req, res, next) => {
   try {
     const phoneNumber = normalizeIndianPhoneNumber(req.body.phone || req.body.phoneNumber);
@@ -53,9 +84,12 @@ export const sendOTP = async (req, res, next) => {
       channel: 'sms',
     });
 
+    const user = await User.findOne({ phoneNumber }).select('_id');
+
     res.status(200).json({
       status: 'success',
       success: true,
+      isRegistered: !!user,
       message: 'OTP sent successfully',
     });
   } catch (err) {
@@ -83,17 +117,66 @@ export const verifyOTP = async (req, res, next) => {
       return next(new AppError('Invalid or expired OTP.', 400));
     }
 
-    const user = await User.findOneAndUpdate(
+    const existingUser = await User.findOneAndUpdate(
       { phoneNumber },
       {
         $set: {
-          phoneNumber,
           isPhoneVerified: true,
           lastLoginAt: new Date(),
         },
+      },
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    if (existingUser) {
+      return createSendToken(existingUser, 200, res);
+    }
+
+    res.status(200).json({
+      status: 'success',
+      success: true,
+      requiresRegistration: true,
+      registrationToken: signRegistrationToken(phoneNumber),
+      message: 'Phone number verified. Please complete registration.',
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const completeRegistration = async (req, res, next) => {
+  try {
+    const name = String(req.body.name || '').trim();
+    const registrationToken = req.body.registrationToken;
+
+    if (!registrationToken) {
+      return next(new AppError('Registration token is required.', 400));
+    }
+
+    if (!name || name.length < 2) {
+      return next(new AppError('Please provide your name.', 400));
+    }
+
+    const decoded = jwt.verify(registrationToken, process.env.JWT_SECRET);
+
+    if (decoded.purpose !== 'phone_registration' || !decoded.phoneNumber) {
+      return next(new AppError('Invalid registration token.', 400));
+    }
+
+    const user = await User.findOneAndUpdate(
+      { phoneNumber: decoded.phoneNumber },
+      {
         $setOnInsert: {
-          name: 'QuickCart User',
+          phoneNumber: decoded.phoneNumber,
+          name,
           role: 'user',
+          isPhoneVerified: true,
+        },
+        $set: {
+          lastLoginAt: new Date(),
         },
       },
       {
@@ -104,7 +187,7 @@ export const verifyOTP = async (req, res, next) => {
       }
     );
 
-    createSendToken(user, 200, res);
+    createSendToken(user, 201, res);
   } catch (err) {
     next(err);
   }
