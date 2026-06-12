@@ -11,6 +11,7 @@ const userSchema = new mongoose.Schema(
       required: [true, 'Please provide your phone number'],
       unique: true,
       trim: true,
+      match: [/^\+[1-9]\d{9,14}$/, 'Please provide a valid E.164 phone number'],
     },
     email: {
       type: String,
@@ -23,13 +24,12 @@ const userSchema = new mongoose.Schema(
       enum: ['user', 'admin'],
       default: 'user',
     },
-    otp: {
-      type: String,
-      select: false,
+    isPhoneVerified: {
+      type: Boolean,
+      default: false,
     },
-    otpExpires: {
+    lastLoginAt: {
       type: Date,
-      select: false,
     },
     active: {
       type: Boolean,
