@@ -4,6 +4,9 @@ import { protect } from '../../controllers/authController.js';
 
 const router = express.Router();
 
+// Barcode lookup route (must be before /:id to avoid conflict)
+router.get('/barcode/:barcode', productController.getProductByBarcode);
+
 router
   .route('/')
   .get(productController.getAllProducts)

@@ -14,6 +14,31 @@ export const getAllProducts = async (req, res, next) => {
   }
 };
 
+export const getProductByBarcode = async (req, res, next) => {
+  try {
+    const { barcode } = req.params;
+
+    // Validate barcode
+    if (!barcode || barcode.trim().length === 0) {
+      return next(new AppError('Barcode is required', 400));
+    }
+
+    // Find product by barcode
+    const product = await Product.findOne({ barcode: barcode.trim() });
+
+    if (!product) {
+      return next(new AppError('Product not found with this barcode', 404));
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: { product },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const createProduct = async (req, res, next) => {
   try {
     const newProduct = await Product.create(req.body);
