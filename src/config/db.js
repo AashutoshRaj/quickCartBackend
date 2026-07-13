@@ -30,16 +30,19 @@ const connectDB = async () => {
     const uri = process.env.MONGODB_URI;
 
     if (!uri) {
-      throw new Error('MONGODB_URI is missing.');
+      console.warn('MONGODB_URI is missing. Continuing without database connection.');
+      return null;
     }
 
     configureDns();
     console.log('Connecting to MongoDB...');
     const conn = await mongoose.connect(uri);
     console.log(`\x1b[32m%s\x1b[0m`, `MongoDB Connected: ${conn.connection.host}`);
+    return conn;
   } catch (error) {
     console.error(`\x1b[31m%s\x1b[0m`, `Error: ${getMongoErrorMessage(error)}`);
-    process.exit(1);
+    console.warn('Continuing without database connection.');
+    return null;
   }
 };
 

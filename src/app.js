@@ -10,10 +10,28 @@ import AppError from './utils/appError.js';
 import apiRouter from './routes/index.js';
 
 const app = express();
+const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173,http://192.168.1.11:5173')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, false);
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Store-Id'],
+  optionsSuccessStatus: 204,
+};
 
 // 1) GLOBAL MIDDLEWARES
 // Implement CORS
-app.use(cors());
+app.use(cors(corsOptions));
 
 // Set security HTTP headers
 app.use(

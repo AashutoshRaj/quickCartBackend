@@ -24,7 +24,7 @@
     "mongoose": "^9.6.2",
     "morgan": "^1.10.1",
     "msg91-sms": "^1.0.1",
-    "stripe": "^22.2.1",
+    "stripe": "^22.3.1",
     "twilio": "^6.0.2"
   },
   "devDependencies": {
