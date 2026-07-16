@@ -47,19 +47,34 @@ export const createCheckoutSession = async (req, res, next) => {
       payment_method_types: ['card', 'link'],
     });
 
+    // Calculate order totals
+    const TAX_RATE = 0.05;
+    const subtotal = cart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const tax = Number((subtotal * TAX_RATE).toFixed(2));
+    const discount = Number(cart.discount || 0);
+    const total = Number((subtotal + tax - discount).toFixed(2));
+
     const order = await Order.create({
       sessionId: session.id,
       customerId,
       storeId,
+      storeName: cart.storeName || 'QuickCart Store',
+      storeAddress: cart.storeAddress,
       items: cart.items.map(item => ({
         productId: item.productId,
         name: item.productName,
         price: item.price,
         quantity: item.quantity,
+        subtotal: item.price * item.quantity,
       })),
-      totalAmount: cart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+      subtotal: Number(subtotal.toFixed(2)),
+      tax,
+      discount,
+      total,
+      totalAmount: total,
       status: 'pending',
       paymentStatus: 'pending',
+      paymentMethod: 'card',
     });
 
     res.status(200).json({
@@ -87,6 +102,39 @@ export const getOrderBySession = async (req, res, next) => {
 
     res.status(200).json({
       status: 'success',
+      data: order,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const completePayment = async (req, res, next) => {
+  try {
+    const { sessionId } = req.body;
+
+    if (!sessionId) {
+      return next(new AppError('Session ID is required.', 400));
+    }
+
+    const order = await Order.findOneAndUpdate(
+      { sessionId },
+      {
+        status: 'completed',
+        paymentStatus: 'completed',
+        completedAt: new Date(),
+        paidAt: new Date(),
+      },
+      { new: true }
+    );
+
+    if (!order) {
+      return next(new AppError('Order not found.', 404));
+    }
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Payment completed',
       data: order,
     });
   } catch (error) {

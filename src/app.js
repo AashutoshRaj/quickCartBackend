@@ -66,6 +66,9 @@ app.use('/api', limiter);
 app.use(express.json({ limit: '10kb' }));
 app.use(cookieParser());
 
+// Serve static files
+app.use(express.static('public'));
+
 // Data sanitization against XSS
 // app.use(xss()); // If you have xss-clean installed
 

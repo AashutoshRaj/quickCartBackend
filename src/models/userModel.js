@@ -17,7 +17,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       unique: true,
       lowercase: true,
-      sparse: true, // Allows multiple null values
+      sparse: true,
     },
     role: {
       type: String,
@@ -35,6 +35,77 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
       select: false,
+    },
+    loyaltyBalance: {
+      points: {
+        type: Number,
+        default: 0,
+      },
+      validUntil: {
+        type: Date,
+        default: () => new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      },
+    },
+    savedPaymentMethods: [
+      {
+        _id: {
+          type: mongoose.Schema.Types.ObjectId,
+          auto: true,
+        },
+        cardNumber: {
+          type: String,
+          required: true,
+        },
+        cardLast4: {
+          type: String,
+          required: true,
+        },
+        expiryDate: {
+          type: String,
+          required: true,
+        },
+        cardholderName: {
+          type: String,
+          required: true,
+        },
+        isDefault: {
+          type: Boolean,
+          default: false,
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+    profileImage: {
+      url: {
+        type: String,
+        default: null,
+      },
+      uploadedAt: {
+        type: Date,
+        default: null,
+      },
+    },
+    preferences: {
+      language: {
+        type: String,
+        default: 'English (US)',
+        enum: ['English (US)', 'Hindi', 'Spanish', 'French'],
+      },
+      notificationsEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      emailNotifications: {
+        type: Boolean,
+        default: true,
+      },
+      smsNotifications: {
+        type: Boolean,
+        default: true,
+      },
     },
   },
   {
