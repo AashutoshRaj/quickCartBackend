@@ -59,6 +59,10 @@ const storeSchema = new Schema<IStore>(
       default: true,
       select: false,
     },
+    qrCode: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,

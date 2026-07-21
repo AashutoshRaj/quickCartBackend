@@ -1,22 +1,33 @@
 import { Router } from 'express';
 import {
   scanStore,
+  scanStorePublic,
   getAllStores,
   getStore,
   createStore,
   updateStore,
   deleteStore,
+  regenerateQRCode,
 } from '../../controllers/storeController.ts';
 
 const router = Router();
 
 /**
  * GET /stores/scan/:storeId
- * Scan store by QR code or manual ID (public route)
+ * Scan store by QR code or manual ID (public route, legacy)
  * @param {string} storeId - Store ID or QR code identifier
  * @returns {object} Store details (200)
  */
 router.get('/scan/:storeId', scanStore);
+
+/**
+ * GET /stores/:storeId/public
+ * Get public store information for customers via QR scan
+ * Used by QuickCart Customer App to fetch store details
+ * @param {string} storeId - Store MongoDB ID
+ * @returns {object} Public store information (200)
+ */
+router.get('/:storeId/public', scanStorePublic);
 
 /**
  * GET /stores
@@ -51,6 +62,14 @@ router.post('/', createStore);
  * @returns {object} Updated store (200)
  */
 router.patch('/:id', updateStore);
+
+/**
+ * POST /stores/:id/qr/regenerate
+ * Regenerate QR code for store (admin only)
+ * @param {string} id - Store ID
+ * @returns {object} Store with regenerated QR code (200)
+ */
+router.post('/:id/qr/regenerate', regenerateQRCode);
 
 /**
  * DELETE /stores/:id

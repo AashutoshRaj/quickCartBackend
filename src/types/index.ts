@@ -162,6 +162,7 @@ export interface IStore extends Document {
   timezone: string;
   status: 'active' | 'inactive' | 'closed';
   isActive: boolean;
+  qrCode?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

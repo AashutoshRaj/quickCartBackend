@@ -6,6 +6,7 @@
 import { Request, Response, NextFunction } from 'express';
 import Store from '../models/storeModel.ts';
 import AppError from '../utils/appError.ts';
+import { generateQRCodeDataURL } from '../utils/qrCodeGenerator.ts';
 import type { IStore, CreateStoreRequest } from '../types/index';
 
 /**
@@ -149,7 +150,59 @@ export const getStore = async (
 };
 
 /**
- * Creates a new store
+ * Scan store by ID and return public information for customers
+ * Used by QuickCart Customer App to fetch store details via QR code
+ * @param req - Express request with storeId in params
+ * @param res - Express response
+ * @param next - Express next function
+ * @returns void - Returns only public store information
+ * @throws AppError if store not found or inactive
+ */
+export const scanStorePublic = async (
+  req: Request<{ storeId: string }, SingleStoreResponse>,
+  res: Response<SingleStoreResponse>,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { storeId } = req.params;
+
+    if (!storeId || storeId.trim().length === 0) {
+      return next(new AppError('Store ID is required', 400));
+    }
+
+    const store = await Store.findById(storeId.trim());
+
+    if (!store) {
+      return next(new AppError('Store not found', 404));
+    }
+
+    if (store.status !== 'active') {
+      return next(new AppError('Store is not currently available', 400));
+    }
+
+    // Return only public store information for customers
+    const publicStoreInfo = {
+      _id: store._id,
+      storeId: store._id?.toString(),
+      name: store.name,
+      logo: store.logo || null,
+      address: store.address,
+      currency: store.currency,
+      timezone: store.timezone,
+      status: store.status,
+    };
+
+    res.status(200).json({
+      status: 'success',
+      data: { store: publicStoreInfo },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Creates a new store with auto-generated QR code
  * @param req - Express request with store details in body
  * @param res - Express response
  * @param next - Express next function
@@ -163,6 +216,16 @@ export const createStore = async (
 ): Promise<void> => {
   try {
     const newStore = await Store.create(req.body);
+
+    // Auto-generate QR code for the store
+    try {
+      const qrCodeDataURL = await generateQRCodeDataURL(newStore._id!.toString());
+      newStore.qrCode = qrCodeDataURL;
+      await newStore.save();
+    } catch (qrError) {
+      console.warn('QR code generation failed, continuing without QR:', qrError);
+    }
+
     res.status(201).json({
       status: 'success',
       data: { store: newStore },
@@ -174,6 +237,7 @@ export const createStore = async (
 
 /**
  * Updates an existing store by ID
+ * Regenerates QR code if needed
  * @param req - Express request with store ID in params and update data in body
  * @param res - Express response
  * @param next - Express next function
@@ -192,10 +256,56 @@ export const updateStore = async (
     });
     if (!store) return next(new AppError('No store found with that ID', 404));
 
+    // Regenerate QR code if it doesn't exist
+    if (!store.qrCode) {
+      try {
+        const qrCodeDataURL = await generateQRCodeDataURL(store._id!.toString());
+        store.qrCode = qrCodeDataURL;
+        await store.save();
+      } catch (qrError) {
+        console.warn('QR code regeneration failed:', qrError);
+      }
+    }
+
     res.status(200).json({
       status: 'success',
       data: { store },
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Regenerate QR code for a store
+ * Admin can regenerate QR code if needed
+ * @param req - Express request with store ID in params
+ * @param res - Express response
+ * @param next - Express next function
+ * @returns void
+ * @throws AppError if store not found
+ */
+export const regenerateQRCode = async (
+  req: Request<{ id: string }, SingleStoreResponse>,
+  res: Response<SingleStoreResponse>,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const store = await Store.findById(req.params.id);
+    if (!store) return next(new AppError('No store found with that ID', 404));
+
+    try {
+      const qrCodeDataURL = await generateQRCodeDataURL(store._id!.toString());
+      store.qrCode = qrCodeDataURL;
+      await store.save();
+
+      res.status(200).json({
+        status: 'success',
+        data: { store },
+      });
+    } catch (qrError) {
+      return next(new AppError('Failed to regenerate QR code', 500));
+    }
   } catch (err) {
     next(err);
   }
