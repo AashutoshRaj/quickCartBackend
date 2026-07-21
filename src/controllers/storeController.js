@@ -40,6 +40,7 @@ export const scanStore = async (req, res, next) => {
       ...storeObj,
       storeId: storeObj.storeId || storeObj._id.toString(),
       name: storeObj.name || storeObj.storeName,
+      storeName: storeObj.storeName || storeObj.name,
       phoneNumber: storeObj.phoneNumber || storeObj.phone,
     };
 
