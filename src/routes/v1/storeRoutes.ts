@@ -8,9 +8,43 @@ import {
   updateStore,
   deleteStore,
   regenerateQRCode,
+  getStoreProfile,
+  saveStoreProfile,
+  generateStoreQRCode,
 } from '../../controllers/storeController.ts';
 
 const router = Router();
+
+/**
+ * Admin Store Profile Endpoints
+ */
+
+/**
+ * GET /stores/profile
+ * Get admin's store profile (admin only)
+ * @returns {object} Store profile details (200)
+ */
+router.get('/profile', getStoreProfile);
+
+/**
+ * POST/PATCH /stores/profile
+ * Save or update admin's store profile (admin only)
+ * @param {object} storeData - Store information to save
+ * @returns {object} Saved store profile (200)
+ */
+router.post('/profile', saveStoreProfile);
+router.patch('/profile', saveStoreProfile);
+
+/**
+ * POST /stores/profile/generate-qr
+ * Generate QR code for admin's store (admin only)
+ * @returns {object} Store with generated QR code (200)
+ */
+router.post('/profile/generate-qr', generateStoreQRCode);
+
+/**
+ * Public Store Endpoints
+ */
 
 /**
  * GET /stores/scan/:storeId

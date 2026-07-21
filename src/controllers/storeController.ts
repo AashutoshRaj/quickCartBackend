@@ -336,3 +336,140 @@ export const deleteStore = async (
     next(err);
   }
 };
+
+/**
+ * Get admin's store profile
+ * Admin accesses their store profile from settings
+ * @param req - Express request with userId from auth
+ * @param res - Express response
+ * @param next - Express next function
+ * @returns void
+ */
+export const getStoreProfile = async (
+  req: Request,
+  res: Response<SingleStoreResponse>,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    // TODO: Get storeId from authenticated user/context
+    // For now, fetch the first active store
+    const store = await Store.findOne({ status: 'active' });
+
+    if (!store) {
+      return next(new AppError('No store profile found. Please create one first.', 404));
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: { store },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Save or update admin's store profile
+ * Admin saves store details from settings page
+ * @param req - Express request with store data in body
+ * @param res - Express response
+ * @param next - Express next function
+ * @returns void
+ */
+export const saveStoreProfile = async (
+  req: Request<never, SingleStoreResponse, Partial<IStore>>,
+  res: Response<SingleStoreResponse>,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const storeData = req.body;
+
+    // Validate required fields
+    if (!storeData.name?.trim()) {
+      return next(new AppError('Store name is required', 400));
+    }
+    if (!storeData.email?.trim()) {
+      return next(new AppError('Email is required', 400));
+    }
+    if (!storeData.phoneNumber?.trim()) {
+      return next(new AppError('Phone number is required', 400));
+    }
+    if (!storeData.address?.trim()) {
+      return next(new AppError('Address is required', 400));
+    }
+
+    // TODO: Get storeId from authenticated user/context
+    // For now, update or create first store
+    let store = await Store.findOne({ status: 'active' });
+
+    if (store) {
+      // Update existing store
+      Object.assign(store, storeData);
+      await store.save();
+    } else {
+      // Create new store (admin's first profile save)
+      // Generate storeId if not provided
+      const newStoreData = {
+        ...storeData,
+        storeId: storeData.storeId || `store_${Date.now()}`,
+      };
+      store = await Store.create(newStoreData);
+
+      // Auto-generate QR code
+      try {
+        const qrCodeDataURL = await generateQRCodeDataURL(store._id!.toString());
+        store.qrCode = qrCodeDataURL;
+        await store.save();
+      } catch (qrError) {
+        console.warn('QR code auto-generation failed:', qrError);
+      }
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: { store },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Generate QR code for admin's store
+ * Admin generates QR from settings page
+ * @param req - Express request
+ * @param res - Express response
+ * @param next - Express next function
+ * @returns void
+ */
+export const generateStoreQRCode = async (
+  req: Request,
+  res: Response<SingleStoreResponse>,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    // TODO: Get storeId from authenticated user/context
+    // For now, generate for first active store
+    const store = await Store.findOne({ status: 'active' });
+
+    if (!store) {
+      return next(new AppError('No store found. Please create store profile first.', 404));
+    }
+
+    // Generate new QR code
+    try {
+      const qrCodeDataURL = await generateQRCodeDataURL(store._id!.toString());
+      store.qrCode = qrCodeDataURL;
+      await store.save();
+
+      res.status(200).json({
+        status: 'success',
+        data: { store },
+      });
+    } catch (qrError) {
+      return next(new AppError('Failed to generate QR code', 500));
+    }
+  } catch (err) {
+    next(err);
+  }
+};
