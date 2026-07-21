@@ -383,6 +383,7 @@ export const saveStoreProfile = async (
 ): Promise<void> => {
   try {
     const storeData = req.body;
+    console.log('saveStoreProfile - incoming data:', storeData);
 
     // Validate required fields
     if (!storeData.name?.trim()) {
@@ -401,35 +402,43 @@ export const saveStoreProfile = async (
     // TODO: Get storeId from authenticated user/context
     // For now, update or create first store
     let store = await Store.findOne({ status: 'active' });
+    console.log('Found existing store:', store?._id);
 
     if (store) {
       // Update existing store
       Object.assign(store, storeData);
       await store.save();
+      console.log('Updated store:', store._id);
     } else {
       // Create new store (admin's first profile save)
       // Generate storeId if not provided
       const newStoreData = {
         ...storeData,
         storeId: storeData.storeId || `store_${Date.now()}`,
+        status: 'active',
       };
+      console.log('Creating new store with data:', newStoreData);
       store = await Store.create(newStoreData);
+      console.log('Created store:', store._id);
 
       // Auto-generate QR code
       try {
         const qrCodeDataURL = await generateQRCodeDataURL(store._id!.toString());
         store.qrCode = qrCodeDataURL;
         await store.save();
+        console.log('QR code generated:', store.qrCode?.substring(0, 50) + '...');
       } catch (qrError) {
         console.warn('QR code auto-generation failed:', qrError);
       }
     }
 
+    console.log('Sending response:', store);
     res.status(200).json({
       status: 'success',
       data: { store },
     });
   } catch (err) {
+    console.error('saveStoreProfile error:', err);
     next(err);
   }
 };
