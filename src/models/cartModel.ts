@@ -1,9 +1,19 @@
-import mongoose from 'mongoose';
+/**
+ * Cart Model
+ * Represents shopping cart with items and pricing calculations
+ */
 
-const cartItemSchema = new mongoose.Schema(
+import mongoose, { Model, Schema } from 'mongoose';
+import type { ICart, ICartItem } from '../types/index';
+
+/**
+ * Cart item sub-schema
+ * Represents individual items in a cart
+ */
+const cartItemSchema = new Schema<ICartItem>(
   {
     productId: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: Schema.Types.ObjectId,
       ref: 'Product',
       required: [true, 'A cart item must reference a product'],
       index: true,
@@ -43,10 +53,14 @@ const cartItemSchema = new mongoose.Schema(
   }
 );
 
-const cartSchema = new mongoose.Schema(
+/**
+ * Cart schema definition
+ * Handles shopping cart state including items, pricing, and status
+ */
+const cartSchema = new Schema<ICart>(
   {
     customerId: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'A cart must belong to a customer'],
       index: true,
@@ -95,6 +109,10 @@ const cartSchema = new mongoose.Schema(
   }
 );
 
+/**
+ * Compound index for active carts per customer and store
+ * Ensures only one active cart per customer per store
+ */
 cartSchema.index(
   { customerId: 1, storeId: 1, status: 1 },
   {
@@ -103,6 +121,11 @@ cartSchema.index(
   }
 );
 
-const Cart = mongoose.model('Cart', cartSchema);
+/**
+ * Cart model
+ * Handles all shopping cart operations
+ */
+const Cart: Model<ICart> = mongoose.model<ICart>('Cart', cartSchema);
 
 export default Cart;
+export type { ICart, ICartItem };

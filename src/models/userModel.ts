@@ -1,6 +1,16 @@
-import mongoose from 'mongoose';
+/**
+ * User Model
+ * Represents user data including profile, loyalty, and payment information
+ */
 
-const userSchema = new mongoose.Schema(
+import mongoose, { Model, Schema } from 'mongoose';
+import type { IUser } from '../types/index';
+
+/**
+ * User schema definition
+ * Handles user account information, preferences, and payment methods
+ */
+const userSchema = new Schema<IUser>(
   {
     name: {
       type: String,
@@ -8,8 +18,8 @@ const userSchema = new mongoose.Schema(
     },
     phoneNumber: {
       type: String,
-      required: [true, 'Please provide your phone number'],
       unique: true,
+      sparse: true,
       trim: true,
       match: [/^\+[1-9]\d{9,14}$/, 'Please provide a valid E.164 phone number'],
     },
@@ -17,6 +27,15 @@ const userSchema = new mongoose.Schema(
       type: String,
       unique: true,
       lowercase: true,
+      sparse: true,
+    },
+    password: {
+      type: String,
+      select: false,
+      minlength: 6,
+    },
+    storeName: {
+      type: String,
       sparse: true,
     },
     role: {
@@ -49,7 +68,7 @@ const userSchema = new mongoose.Schema(
     savedPaymentMethods: [
       {
         _id: {
-          type: mongoose.Schema.Types.ObjectId,
+          type: Schema.Types.ObjectId,
           auto: true,
         },
         cardNumber: {
@@ -113,7 +132,11 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-const User = mongoose.model('User', userSchema);
+/**
+ * User model
+ * Handles all user-related database operations
+ */
+const User: Model<IUser> = mongoose.model<IUser>('User', userSchema);
 
 export default User;
-
+export type { IUser };

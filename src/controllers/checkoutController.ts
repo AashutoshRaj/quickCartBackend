@@ -1,16 +1,63 @@
+/**
+ * Checkout Controller
+ * Handles payment checkout, order creation, and payment completion
+ */
+
+import { Request, Response, NextFunction } from 'express';
 import Stripe from 'stripe';
-import Cart from '../models/cartModel.js';
-import Order from '../models/orderModel.js';
-import AppError from '../utils/appError.js';
+import Cart from '../models/cartModel.ts';
+import Order from '../models/orderModel.ts';
+import AppError from '../utils/appError.ts';
+import type { IOrder } from '../types/index';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
   apiVersion: '2025-04-30.basil',
 });
 
-export const createCheckoutSession = async (req, res, next) => {
+/**
+ * Request body for checkout operations
+ */
+interface CheckoutRequest {
+  storeId?: string;
+  sessionId?: string;
+}
+
+/**
+ * Response type for checkout creation
+ */
+interface CheckoutResponse {
+  status: string;
+  data: {
+    checkoutSessionId: string;
+    url: string | null;
+  };
+}
+
+/**
+ * Response type for order operations
+ */
+interface OrderResponse {
+  status: string;
+  message?: string;
+  data: IOrder;
+}
+
+/**
+ * Creates a Stripe checkout session and initializes an order
+ * @param req - Express request with cart and store information
+ * @param res - Express response
+ * @param next - Express next function
+ * @returns void
+ * @throws AppError if user not logged in or cart is empty
+ */
+export const createCheckoutSession = async (
+  req: Request<never, CheckoutResponse, CheckoutRequest>,
+  res: Response<CheckoutResponse>,
+  next: NextFunction
+): Promise<void> => {
   try {
     const customerId = req.user?._id;
-    const storeId = req.body?.storeId || req.query?.storeId || 'default-store';
+    const storeId = req.body?.storeId || (req.query?.storeId as string) || 'default-store';
 
     if (!customerId) {
       return next(new AppError('You must be logged in to checkout.', 401));
@@ -58,9 +105,9 @@ export const createCheckoutSession = async (req, res, next) => {
       sessionId: session.id,
       customerId,
       storeId,
-      storeName: cart.storeName || 'QuickCart Store',
-      storeAddress: cart.storeAddress,
-      items: cart.items.map(item => ({
+      storeName: (cart as unknown as Record<string, unknown>).storeName || 'QuickCart Store',
+      storeAddress: (cart as unknown as Record<string, unknown>).storeAddress,
+      items: cart.items.map((item) => ({
         productId: item.productId,
         name: item.productName,
         price: item.price,
@@ -86,7 +133,19 @@ export const createCheckoutSession = async (req, res, next) => {
   }
 };
 
-export const getOrderBySession = async (req, res, next) => {
+/**
+ * Retrieves an order by Stripe session ID
+ * @param req - Express request with session ID in params
+ * @param res - Express response
+ * @param next - Express next function
+ * @returns void
+ * @throws AppError if session ID is missing or order not found
+ */
+export const getOrderBySession = async (
+  req: Request<{ sessionId: string }, OrderResponse>,
+  res: Response<OrderResponse>,
+  next: NextFunction
+): Promise<void> => {
   try {
     const { sessionId } = req.params;
 
@@ -102,14 +161,26 @@ export const getOrderBySession = async (req, res, next) => {
 
     res.status(200).json({
       status: 'success',
-      data: order,
+      data: order as IOrder,
     });
   } catch (error) {
     next(error);
   }
 };
 
-export const completePayment = async (req, res, next) => {
+/**
+ * Marks an order as completed after successful payment
+ * @param req - Express request with session ID in body
+ * @param res - Express response
+ * @param next - Express next function
+ * @returns void
+ * @throws AppError if session ID is missing or order not found
+ */
+export const completePayment = async (
+  req: Request<never, OrderResponse, CheckoutRequest>,
+  res: Response<OrderResponse>,
+  next: NextFunction
+): Promise<void> => {
   try {
     const { sessionId } = req.body;
 
@@ -142,7 +213,19 @@ export const completePayment = async (req, res, next) => {
   }
 };
 
-export const exitOrder = async (req, res, next) => {
+/**
+ * Marks an order as exited (user cancelled checkout)
+ * @param req - Express request with session ID in params
+ * @param res - Express response
+ * @param next - Express next function
+ * @returns void
+ * @throws AppError if session ID is missing or order not found
+ */
+export const exitOrder = async (
+  req: Request<{ sessionId: string }, OrderResponse>,
+  res: Response<OrderResponse>,
+  next: NextFunction
+): Promise<void> => {
   try {
     const { sessionId } = req.params;
 

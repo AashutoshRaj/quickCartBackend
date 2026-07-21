@@ -1,6 +1,16 @@
-import mongoose from 'mongoose';
+/**
+ * Store Model
+ * Represents physical store locations with configuration
+ */
 
-const storeSchema = new mongoose.Schema(
+import mongoose, { Model, Schema } from 'mongoose';
+import type { IStore } from '../types/index';
+
+/**
+ * Store schema definition
+ * Stores information about physical store locations
+ */
+const storeSchema = new Schema<IStore>(
   {
     storeId: {
       type: String,
@@ -55,6 +65,11 @@ const storeSchema = new mongoose.Schema(
   }
 );
 
-const Store = mongoose.model('Store', storeSchema);
+/**
+ * Store model
+ * Handles all store configuration and lookup operations
+ */
+const Store: Model<IStore> = mongoose.model<IStore>('Store', storeSchema);
 
 export default Store;
+export type { IStore };

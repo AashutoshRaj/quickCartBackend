@@ -1,6 +1,16 @@
-import mongoose from 'mongoose';
+/**
+ * Product Model
+ * Represents product catalog with pricing and inventory
+ */
 
-const productSchema = new mongoose.Schema(
+import mongoose, { Model, Schema } from 'mongoose';
+import type { IProduct } from '../types/index';
+
+/**
+ * Product schema definition
+ * Stores product information including barcode, pricing, and inventory
+ */
+const productSchema = new Schema<IProduct>(
   {
     name: {
       type: String,
@@ -47,6 +57,11 @@ const productSchema = new mongoose.Schema(
   }
 );
 
-const Product = mongoose.model('Product', productSchema);
+/**
+ * Product model
+ * Handles all product-related database operations
+ */
+const Product: Model<IProduct> = mongoose.model<IProduct>('Product', productSchema);
 
 export default Product;
+export type { IProduct };

@@ -1,13 +1,42 @@
+/**
+ * Cart Controller
+ * Handles shopping cart operations including add, update, remove items
+ */
+
+import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
-import Cart from '../models/cartModel.js';
-import Product from '../models/productModel.js';
-import AppError from '../utils/appError.js';
+import Cart from '../models/cartModel.ts';
+import Product from '../models/productModel.ts';
+import AppError from '../utils/appError.ts';
+import type { ICart, ICartItem } from '../types/index';
 
 const TAX_RATE = 0.05;
 
-const getStoreId = (req) => {
+/**
+ * Response type for cart operations
+ */
+interface CartResponse {
+  status: string;
+  data: { cart: Partial<ICart> };
+}
+
+/**
+ * Request body for cart operations
+ */
+interface CartUpdateRequest {
+  quantity?: number;
+  productId?: string;
+  storeId?: string;
+}
+
+/**
+ * Extracts store ID from request (body, query, or headers)
+ * @param req - Express request
+ * @returns Store ID string
+ */
+const getStoreId = (req: Request): string => {
   const rawStoreId =
-    req.body?.storeId ||
+    (req.body as Record<string, unknown>)?.storeId ||
     req.query?.storeId ||
     req.headers['x-store-id'] ||
     req.headers['x-store'] ||
@@ -16,7 +45,12 @@ const getStoreId = (req) => {
   return String(rawStoreId || 'default-store').trim();
 };
 
-const recalculateTotals = (cartDoc) => {
+/**
+ * Recalculates cart totals (subtotal, tax, grand total)
+ * @param cartDoc - Cart document
+ * @returns Updated cart document
+ */
+const recalculateTotals = (cartDoc: ICart): ICart => {
   const subtotal = cartDoc.items.reduce((sum, item) => sum + (item.subtotal || 0), 0);
   const totalItems = cartDoc.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
   const tax = Number((subtotal * TAX_RATE).toFixed(2));
@@ -31,14 +65,25 @@ const recalculateTotals = (cartDoc) => {
   return cartDoc;
 };
 
-export const getCart = async (req, res, next) => {
+/**
+ * Retrieves the active cart for the current user and store
+ * @param req - Express request with authenticated user
+ * @param res - Express response
+ * @param next - Express next function
+ * @returns void
+ */
+export const getCart = async (
+  req: Request,
+  res: Response<CartResponse>,
+  next: NextFunction
+): Promise<void> => {
   try {
-    const customerId = req.user._id;
+    const customerId = req.user?._id;
     const storeId = getStoreId(req);
 
     const cart = await Cart.findOne({ customerId, storeId, status: 'active' }).lean();
 
-    const payload = {
+    const payload: Partial<ICart> = {
       items: [],
       totalItems: 0,
       subtotal: 0,
@@ -47,7 +92,6 @@ export const getCart = async (req, res, next) => {
       grandTotal: 0,
       status: 'active',
       storeId,
-      _id: undefined,
     };
 
     if (cart) {
@@ -58,9 +102,9 @@ export const getCart = async (req, res, next) => {
       payload.discount = cart.discount || 0;
       payload.grandTotal = cart.grandTotal || 0;
       payload.status = cart.status || 'active';
-      payload._id = cart._id;
-      payload.createdAt = cart.createdAt;
-      payload.updatedAt = cart.updatedAt;
+      payload._id = (cart as unknown as Record<string, unknown>)._id;
+      payload.createdAt = (cart as unknown as Record<string, unknown>).createdAt as Date;
+      payload.updatedAt = (cart as unknown as Record<string, unknown>).updatedAt as Date;
     }
 
     res.status(200).json({
@@ -72,9 +116,22 @@ export const getCart = async (req, res, next) => {
   }
 };
 
-export const addToCart = async (req, res, next) => {
+/**
+ * Adds a product to the user's cart
+ * Creates new cart if none exists, handles stock validation
+ * @param req - Express request with authenticated user
+ * @param res - Express response
+ * @param next - Express next function
+ * @returns void
+ * @throws AppError if product not found or insufficient stock
+ */
+export const addToCart = async (
+  req: Request<never, CartResponse, CartUpdateRequest>,
+  res: Response<CartResponse>,
+  next: NextFunction
+): Promise<void> => {
   try {
-    const customerId = req.user._id;
+    const customerId = req.user?._id;
     const storeId = getStoreId(req);
     const quantity = Number(req.body?.quantity ?? 1);
     const productId = req.body?.productId;
@@ -143,8 +200,11 @@ export const addToCart = async (req, res, next) => {
       });
 
       const updatedCart = await Cart.findOne({ customerId, storeId, status: 'active' }).lean();
-      const payload = {
-        items: (updatedCart?.items || []).map((item) => ({ ...item, productId: item.productId.toString() })),
+      const payload: Partial<ICart> = {
+        items: (updatedCart?.items || []).map((item) => ({
+          ...item,
+          productId: item.productId.toString(),
+        })),
         totalItems: updatedCart?.totalItems || 0,
         subtotal: updatedCart?.subtotal || 0,
         tax: updatedCart?.tax || 0,
@@ -166,9 +226,21 @@ export const addToCart = async (req, res, next) => {
   }
 };
 
-export const updateCartQuantity = async (req, res, next) => {
+/**
+ * Updates the quantity of a product in the cart
+ * @param req - Express request with product ID in params and new quantity in body
+ * @param res - Express response
+ * @param next - Express next function
+ * @returns void
+ * @throws AppError if product not found in cart or insufficient stock
+ */
+export const updateCartQuantity = async (
+  req: Request<{ productId: string }, CartResponse, CartUpdateRequest>,
+  res: Response<CartResponse>,
+  next: NextFunction
+): Promise<void> => {
   try {
-    const customerId = req.user._id;
+    const customerId = req.user?._id;
     const storeId = getStoreId(req);
     const quantity = Number(req.body?.quantity ?? 1);
     const { productId } = req.params;
@@ -217,7 +289,7 @@ export const updateCartQuantity = async (req, res, next) => {
       const updatedCart = await Cart.findOne({ customerId, storeId, status: 'active' }).lean();
       res.status(200).json({
         status: 'success',
-        data: { cart: updatedCart },
+        data: { cart: updatedCart as Partial<ICart> },
       });
     } finally {
       session.endSession();
@@ -227,9 +299,21 @@ export const updateCartQuantity = async (req, res, next) => {
   }
 };
 
-export const increaseQuantity = async (req, res, next) => {
+/**
+ * Increases the quantity of a product in the cart by 1
+ * @param req - Express request with product ID in params
+ * @param res - Express response
+ * @param next - Express next function
+ * @returns void
+ * @throws AppError if product not found in cart or insufficient stock
+ */
+export const increaseQuantity = async (
+  req: Request<{ productId: string }, CartResponse>,
+  res: Response<CartResponse>,
+  next: NextFunction
+): Promise<void> => {
   try {
-    const customerId = req.user._id;
+    const customerId = req.user?._id;
     const storeId = getStoreId(req);
     const { productId } = req.params;
 
@@ -269,7 +353,7 @@ export const increaseQuantity = async (req, res, next) => {
       const updatedCart = await Cart.findOne({ customerId, storeId, status: 'active' }).lean();
       res.status(200).json({
         status: 'success',
-        data: { cart: updatedCart },
+        data: { cart: updatedCart as Partial<ICart> },
       });
     } finally {
       session.endSession();
@@ -279,9 +363,22 @@ export const increaseQuantity = async (req, res, next) => {
   }
 };
 
-export const decreaseQuantity = async (req, res, next) => {
+/**
+ * Decreases the quantity of a product in the cart by 1
+ * Removes item if quantity becomes 0
+ * @param req - Express request with product ID in params
+ * @param res - Express response
+ * @param next - Express next function
+ * @returns void
+ * @throws AppError if product not found in cart
+ */
+export const decreaseQuantity = async (
+  req: Request<{ productId: string }, CartResponse>,
+  res: Response<CartResponse>,
+  next: NextFunction
+): Promise<void> => {
   try {
-    const customerId = req.user._id;
+    const customerId = req.user?._id;
     const storeId = getStoreId(req);
     const { productId } = req.params;
 
@@ -315,7 +412,7 @@ export const decreaseQuantity = async (req, res, next) => {
       const updatedCart = await Cart.findOne({ customerId, storeId, status: 'active' }).lean();
       res.status(200).json({
         status: 'success',
-        data: { cart: updatedCart },
+        data: { cart: updatedCart as Partial<ICart> },
       });
     } finally {
       session.endSession();
@@ -325,9 +422,21 @@ export const decreaseQuantity = async (req, res, next) => {
   }
 };
 
-export const removeFromCart = async (req, res, next) => {
+/**
+ * Removes a product from the cart completely
+ * @param req - Express request with product ID in params
+ * @param res - Express response
+ * @param next - Express next function
+ * @returns void
+ * @throws AppError if product not found in cart
+ */
+export const removeFromCart = async (
+  req: Request<{ productId: string }, CartResponse>,
+  res: Response<CartResponse>,
+  next: NextFunction
+): Promise<void> => {
   try {
-    const customerId = req.user._id;
+    const customerId = req.user?._id;
     const storeId = getStoreId(req);
     const { productId } = req.params;
 
@@ -347,7 +456,7 @@ export const removeFromCart = async (req, res, next) => {
       const updatedCart = await Cart.findOne({ customerId, storeId, status: 'active' }).lean();
       res.status(200).json({
         status: 'success',
-        data: { cart: updatedCart },
+        data: { cart: updatedCart as Partial<ICart> },
       });
     } finally {
       session.endSession();
@@ -357,9 +466,21 @@ export const removeFromCart = async (req, res, next) => {
   }
 };
 
-export const clearCart = async (req, res, next) => {
+/**
+ * Clears all items from the cart
+ * @param req - Express request with authenticated user
+ * @param res - Express response
+ * @param next - Express next function
+ * @returns void
+ * @throws AppError if no active cart found
+ */
+export const clearCart = async (
+  req: Request,
+  res: Response<CartResponse>,
+  next: NextFunction
+): Promise<void> => {
   try {
-    const customerId = req.user._id;
+    const customerId = req.user?._id;
     const storeId = getStoreId(req);
 
     const session = await mongoose.startSession();
@@ -381,7 +502,16 @@ export const clearCart = async (req, res, next) => {
 
       res.status(200).json({
         status: 'success',
-        data: { cart: { items: [], totalItems: 0, subtotal: 0, tax: 0, discount: 0, grandTotal: 0 } },
+        data: {
+          cart: {
+            items: [],
+            totalItems: 0,
+            subtotal: 0,
+            tax: 0,
+            discount: 0,
+            grandTotal: 0,
+          },
+        },
       });
     } finally {
       session.endSession();

@@ -1,4 +1,22 @@
-const globalErrorHandler = (err, req, res, next) => {
+import { Request, Response, NextFunction } from 'express';
+
+/**
+ * Global error handler middleware
+ * Handles all application errors and sends appropriate responses
+ * In development: includes full error details and stack trace
+ * In production: only sends operational error messages to avoid leaking sensitive info
+ *
+ * @param err - The error object
+ * @param req - Express request object
+ * @param res - Express response object
+ * @param next - Express next function (included for middleware signature)
+ */
+const globalErrorHandler = (
+  err: any,
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void => {
   err.statusCode = err.statusCode || 500;
   err.status = err.status || 'error';
 

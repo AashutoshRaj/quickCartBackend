@@ -1,6 +1,16 @@
-import mongoose from 'mongoose';
+/**
+ * Order Model
+ * Represents completed orders with payment and status tracking
+ */
 
-const orderSchema = new mongoose.Schema(
+import mongoose, { Model, Schema } from 'mongoose';
+import type { IOrder } from '../types/index';
+
+/**
+ * Order schema definition
+ * Tracks order details including items, payments, and status
+ */
+const orderSchema = new Schema<IOrder>(
   {
     sessionId: {
       type: String,
@@ -9,7 +19,7 @@ const orderSchema = new mongoose.Schema(
       index: true,
     },
     customerId: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: Schema.Types.ObjectId,
       ref: 'User',
       required: true,
       index: true,
@@ -84,7 +94,17 @@ const orderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+/**
+ * Indexes for efficient querying
+ */
 orderSchema.index({ customerId: 1, createdAt: -1 });
 orderSchema.index({ status: 1, createdAt: -1 });
 
-export default mongoose.model('Order', orderSchema);
+/**
+ * Order model
+ * Handles all order-related database operations
+ */
+const Order: Model<IOrder> = mongoose.model<IOrder>('Order', orderSchema);
+
+export default Order;
+export type { IOrder };

@@ -1,37 +1,38 @@
-import express from 'express';
+import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 
-import globalErrorHandler from './middleware/errorMiddleware.js';
-import AppError from './utils/appError.js';
-import apiRouter from './routes/index.js';
+import globalErrorHandler from './middleware/errorMiddleware.ts';
+import AppError from './utils/appError.ts';
+import apiRouter from './routes/index.ts';
 
-const app = express();
-const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173,http://192.168.1.11:5173')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
+const app: Express = express();
 
-const corsOptions = {
-  origin: (origin, callback) => {
+// 1) GLOBAL MIDDLEWARES
+// Implement CORS
+const allowedOrigins = [
+  'http://localhost:5174',
+  'http://127.0.0.1:5174',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173'
+];
+
+app.use(cors({
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(null, false);
+      callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Store-Id'],
-  optionsSuccessStatus: 204,
-};
-
-// 1) GLOBAL MIDDLEWARES
-// Implement CORS
-app.use(cors(corsOptions));
+  optionsSuccessStatus: 200,
+}));
 
 // Set security HTTP headers
 app.use(
@@ -75,7 +76,7 @@ app.use(express.static('public'));
 // 2) ROUTES
 app.use('/api/v1', apiRouter);
 
-app.get('/', (req, res) => {
+app.get('/', (req: Request, res: Response) => {
   res.status(200).json({
     message: 'Welcome to QuickCart API',
     version: '1.0.0',
@@ -83,7 +84,7 @@ app.get('/', (req, res) => {
 });
 
 // 3) ERROR HANDLING
-app.all('*path', (req, res, next) => {
+app.all('*path', (req: Request, res: Response, next: NextFunction) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
 });
 

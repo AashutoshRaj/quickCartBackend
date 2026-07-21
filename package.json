@@ -4,9 +4,9 @@
   "description": "",
   "type": "module",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
-    "seed": "node src/scripts/seedOrders.js"
+    "start": "tsx src/server.ts",
+    "dev": "nodemon --exec tsx src/server.ts",
+    "seed": "tsx src/scripts/seedOrders.ts"
   },
   "keywords": [],
   "author": "",
@@ -30,6 +30,7 @@
     "twilio": "^6.0.2"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.14",
+    "tsx": "^4.23.1"
   }
 }
