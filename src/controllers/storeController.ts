@@ -385,13 +385,23 @@ export const saveStoreProfile = async (
     const storeData = req.body;
     console.log('saveStoreProfile - incoming data:', storeData);
 
+    // Get authenticated user's email as fallback
+    // email should be sent from frontend, but use auth user's email if missing
+    const authUserEmail = (req as any).user?.email;
+    console.log('Auth user email:', authUserEmail);
+
     // Validate required fields
     if (!storeData.name?.trim()) {
       return next(new AppError('Store name is required', 400));
     }
-    if (!storeData.email?.trim()) {
-      return next(new AppError('Email is required', 400));
+
+    // Use frontend email if provided and non-empty, otherwise use auth user's email
+    const emailToUse = storeData.email?.trim() || authUserEmail;
+    if (!emailToUse) {
+      return next(new AppError('Email is required (from form or account)', 400));
     }
+    console.log('Using email:', emailToUse);
+
     if (!storeData.phoneNumber?.trim()) {
       return next(new AppError('Phone number is required', 400));
     }
@@ -407,6 +417,8 @@ export const saveStoreProfile = async (
     if (store) {
       // Update existing store
       Object.assign(store, storeData);
+      // Ensure email is always set from auth user if not provided
+      store.email = emailToUse;
       await store.save();
       console.log('Updated store:', store._id);
     } else {
@@ -414,6 +426,7 @@ export const saveStoreProfile = async (
       // Generate storeId if not provided
       const newStoreData = {
         ...storeData,
+        email: emailToUse, // Use auth email if frontend doesn't send
         storeId: storeData.storeId || `store_${Date.now()}`,
         status: 'active',
       };
