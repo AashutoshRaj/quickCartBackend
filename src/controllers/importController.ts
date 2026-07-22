@@ -62,6 +62,11 @@ const validateProductRow = (
   const category = row.category?.trim();
   const price = parseFloat(row.price as string);
 
+  if (rowIndex === 2) {
+    console.log(`[IMPORT] Validating row 2. Row data:`, row);
+    console.log(`[IMPORT] Extracted name: "${name}", category: "${category}", price: ${price}`);
+  }
+
   if (!name || name.length === 0) {
     errors.push({ row: rowIndex, field: 'name', value: row.name, error: 'Name is required' });
     return false;
@@ -205,6 +210,12 @@ export const importProducts = async (
     const fileName = req.file.originalname;
 
     const rows = await parseFile(filePath, fileName);
+
+    console.log(`[IMPORT] File parsed. Total rows: ${rows.length}`);
+    if (rows.length > 0) {
+      console.log(`[IMPORT] First row keys:`, Object.keys(rows[0]));
+      console.log(`[IMPORT] First row data:`, rows[0]);
+    }
 
     const result: ImportResult = {
       total: rows.length,
