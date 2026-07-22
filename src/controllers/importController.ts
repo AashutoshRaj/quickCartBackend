@@ -5,6 +5,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import Product from '../models/productModel.ts';
+import ImportHistory from '../models/importHistoryModel.ts';
 import AppError from '../utils/appError.ts';
 import type { IProduct, CreateProductRequest } from '../types/index';
 import * as fs from 'fs';
@@ -192,6 +193,8 @@ export const importProducts = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const startTime = Date.now();
+
     if (!req.file) {
       return next(new AppError('No file uploaded', 400));
     }
@@ -260,6 +263,30 @@ export const importProducts = async (
       result.success = productsToInsert.length;
     }
 
+    const processingTimeMs = Date.now() - startTime;
+
+    const importHistoryData: any = {
+      storeId,
+      fileName,
+      uploadedBy: createdBy,
+      totalRecords: result.total,
+      successfulImports: result.success,
+      failedRecords: result.failed,
+      duplicateRecords: result.duplicates,
+      importStatus: 'completed',
+      processingTimeMs,
+    };
+
+    if (result.errors && result.errors.length > 0) {
+      importHistoryData.errors = result.errors;
+    }
+
+    if (result.skipped && result.skipped.length > 0) {
+      importHistoryData.skipped = result.skipped;
+    }
+
+    await ImportHistory.create(importHistoryData);
+
     try {
       fs.unlinkSync(filePath);
     } catch (e) {
@@ -268,10 +295,35 @@ export const importProducts = async (
 
     res.status(200).json({
       status: 'success',
-      data: result,
+      data: {
+        ...result,
+        processingTimeMs,
+      },
       message: `Imported ${result.success} products. ${result.duplicates} duplicates skipped. ${result.failed} records failed.`,
     });
   } catch (err) {
+    const processingTimeMs = Date.now() - (startTime || Date.now());
+    const storeId = req.user?.storeName || 'default-store';
+    const createdBy = req.user?.name || 'unknown';
+    const fileName = req.file?.originalname || 'unknown-file';
+
+    try {
+      await ImportHistory.create({
+        storeId,
+        fileName,
+        uploadedBy: createdBy,
+        totalRecords: 0,
+        successfulImports: 0,
+        failedRecords: 0,
+        duplicateRecords: 0,
+        importStatus: 'failed',
+        processingTimeMs,
+        errors: [{ error: err instanceof Error ? err.message : String(err) }],
+      });
+    } catch (historyErr) {
+      console.error('Error creating import history record:', historyErr);
+    }
+
     if (req.file) {
       try {
         fs.unlinkSync(req.file.path);
@@ -279,6 +331,43 @@ export const importProducts = async (
         console.error('Error deleting file:', e);
       }
     }
+    next(err);
+  }
+};
+
+/**
+ * Get import history with pagination
+ * GET /api/v1/imports
+ */
+export const getImportHistory = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
+    const storeId = req.user?.storeName || 'default-store';
+
+    const total = await ImportHistory.countDocuments({ storeId });
+    const history = await ImportHistory.find({ storeId })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    res.status(200).json({
+      status: 'success',
+      data: history,
+      meta: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (err) {
     next(err);
   }
 };

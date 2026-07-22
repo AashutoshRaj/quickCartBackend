@@ -55,6 +55,21 @@ export const getAllProducts = async (
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
     const search = (req.query.search as string) || '';
+    const sortBy = (req.query.sortBy as string) || 'createdAt';
+    const sortOrder = (req.query.sortOrder as string) === 'asc' ? 1 : -1;
+
+    const sortMap: Record<string, string> = {
+      name: 'name',
+      price: 'price',
+      stock: 'stock',
+      category: 'category',
+      createdDate: 'createdAt',
+      updatedDate: 'updatedAt',
+    };
+
+    const sortField = sortMap[sortBy] || 'createdAt';
+    const sort = { [sortField]: sortOrder };
+
     const category = (req.query.category as string) || '';
     const status = (req.query.status as string) || '';
     const skip = (page - 1) * limit;
@@ -81,7 +96,7 @@ export const getAllProducts = async (
 
     const total = await Product.countDocuments(query);
     const products = await Product.find(query)
-      .sort({ createdAt: -1 })
+      .sort(sort)
       .skip(skip)
       .limit(limit);
 

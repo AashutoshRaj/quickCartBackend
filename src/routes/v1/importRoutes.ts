@@ -59,12 +59,6 @@ router.post('/upload', protect, upload.single('file'), importController.importPr
  * @query {number} limit - Results per page (default: 10)
  * @returns {object} Import history with metadata
  */
-router.get('/', protect, (req: Request, res: Response) => {
-  const { page = 1, limit = 10 } = req.query;
-  res.json({
-    data: [],
-    meta: { total: 0, page, limit }
-  });
-});
+router.get('/', protect, importController.getImportHistory);
 
 export default router;
