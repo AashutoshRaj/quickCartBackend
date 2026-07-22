@@ -72,12 +72,21 @@ export interface IUser extends Document {
 export interface IProduct extends Document {
   name: string;
   barcode?: string;
+  sku?: string;
+  brand?: string;
   price: number;
-  description: string;
+  costPrice?: number;
+  discountPrice?: number;
+  description?: string;
   category: string;
+  unit?: string;
+  tax?: number;
+  currency?: string;
   storeId: string;
-  image: string;
-  stock: number;
+  image?: string;
+  stock?: number;
+  status?: 'active' | 'inactive' | 'discontinued';
+  createdBy?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -152,18 +161,32 @@ export interface IOrder extends Document {
 /**
  * Store Document Interface
  */
+export interface IBusinessHours {
+  day: string;
+  open: boolean;
+  from: string;
+  to: string;
+}
+
 export interface IStore extends Document {
   storeId: string;
   name: string;
   email: string;
   logo?: string | null;
   address: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
   phoneNumber: string;
+  description?: string;
   currency: 'USD' | 'EUR' | 'GBP' | 'INR' | 'JPY' | 'AUD' | 'CAD';
   timezone: string;
+  businessHours?: IBusinessHours[];
   status: 'active' | 'inactive' | 'closed';
   isActive: boolean;
   qrCode?: string | null;
+  qrGeneratedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -208,12 +231,21 @@ export interface UpdateUserRequest {
 export interface CreateProductRequest {
   name: string;
   barcode?: string;
+  sku?: string;
+  brand?: string;
   price: number;
-  description: string;
+  costPrice?: number;
+  discountPrice?: number;
+  description?: string;
   category: string;
+  unit?: string;
+  tax?: number;
+  currency?: string;
   storeId?: string;
   image?: string;
   stock?: number;
+  status?: 'active' | 'inactive' | 'discontinued';
+  createdBy?: string;
 }
 
 export interface CreateOrderRequest {
@@ -228,14 +260,20 @@ export interface CreateOrderRequest {
 }
 
 export interface CreateStoreRequest {
-  storeId: string;
+  storeId?: string;
   name: string;
   email: string;
   logo?: string;
   address: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
   phoneNumber: string;
+  description?: string;
   currency?: 'USD' | 'EUR' | 'GBP' | 'INR' | 'JPY' | 'AUD' | 'CAD';
   timezone?: string;
+  businessHours?: IBusinessHours[];
 }
 
 /**

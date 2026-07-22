@@ -55,21 +55,35 @@ export const getAllProducts = async (
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
     const search = (req.query.search as string) || '';
+    const category = (req.query.category as string) || '';
+    const status = (req.query.status as string) || '';
     const skip = (page - 1) * limit;
+    const storeId = req.user?.storeName || req.query.storeId || 'default-store';
 
-    let query: Record<string, unknown> = {};
+    let query: Record<string, unknown> = { storeId };
+
     if (search) {
-      query = {
-        $or: [
-          { name: { $regex: search, $options: 'i' } },
-          { barcode: { $regex: search, $options: 'i' } },
-          { category: { $regex: search, $options: 'i' } },
-        ],
-      };
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { barcode: { $regex: search, $options: 'i' } },
+        { sku: { $regex: search, $options: 'i' } },
+        { category: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    if (category) {
+      query.category = { $regex: category, $options: 'i' };
+    }
+
+    if (status) {
+      query.status = status;
     }
 
     const total = await Product.countDocuments(query);
-    const products = await Product.find(query).skip(skip).limit(limit);
+    const products = await Product.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
     res.status(200).json({
       data: products,
@@ -137,7 +151,13 @@ export const createProduct = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const newProduct = await Product.create(req.body);
+    const productData = {
+      ...req.body,
+      storeId: req.body.storeId || req.user?.storeName || 'default-store',
+      createdBy: req.user?.name || 'unknown',
+    };
+
+    const newProduct = await Product.create(productData);
     res.status(201).json({
       status: 'success',
       data: { product: newProduct },

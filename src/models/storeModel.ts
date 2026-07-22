@@ -39,10 +39,35 @@ const storeSchema = new Schema<IStore>(
       required: [true, 'Store must have an address'],
       trim: true,
     },
+    city: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    state: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    country: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    postalCode: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     phoneNumber: {
       type: String,
       required: [true, 'Store must have a phone number'],
       trim: true,
+    },
+    description: {
+      type: String,
+      trim: true,
+      default: '',
     },
     currency: {
       type: String,
@@ -54,6 +79,15 @@ const storeSchema = new Schema<IStore>(
       type: String,
       required: [true, 'Store must have a timezone'],
       default: 'UTC',
+    },
+    businessHours: {
+      type: [{
+        day: String,
+        open: Boolean,
+        from: String,
+        to: String,
+      }],
+      default: [],
     },
     status: {
       type: String,
@@ -67,6 +101,10 @@ const storeSchema = new Schema<IStore>(
     },
     qrCode: {
       type: String,
+      default: null,
+    },
+    qrGeneratedAt: {
+      type: Date,
       default: null,
     },
   },

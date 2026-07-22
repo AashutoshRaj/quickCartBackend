@@ -221,6 +221,7 @@ export const createStore = async (
     try {
       const qrCodeDataURL = await generateQRCodeDataURL(newStore._id!.toString());
       newStore.qrCode = qrCodeDataURL;
+      (newStore as any).qrGeneratedAt = new Date();
       await newStore.save();
     } catch (qrError) {
       console.warn('QR code generation failed, continuing without QR:', qrError);
@@ -297,6 +298,7 @@ export const regenerateQRCode = async (
     try {
       const qrCodeDataURL = await generateQRCodeDataURL(store._id!.toString());
       store.qrCode = qrCodeDataURL;
+      (store as any).qrGeneratedAt = new Date();
       await store.save();
 
       res.status(200).json({
@@ -359,6 +361,24 @@ export const getStoreProfile = async (
       return next(new AppError('No store profile found. Please create one first.', 404));
     }
 
+    // Debug: log what we're retrieving
+    console.log('Backend: Retrieved store from DB:', {
+      _id: store._id,
+      name: store.name,
+      email: store.email,
+      phoneNumber: store.phoneNumber,
+      address: store.address,
+      city: store.city,
+      state: store.state,
+      country: store.country,
+      postalCode: store.postalCode,
+      description: store.description,
+      currency: store.currency,
+      timezone: store.timezone,
+      logo: store.logo ? 'Yes' : 'No',
+      qrCode: store.qrCode ? 'Yes' : 'No',
+    });
+
     res.status(200).json({
       status: 'success',
       data: { store },
@@ -415,29 +435,66 @@ export const saveStoreProfile = async (
     console.log('Found existing store:', store?._id);
 
     if (store) {
-      // Update existing store
-      Object.assign(store, storeData);
-      // Ensure email is always set from auth user if not provided
+      // Update existing store - set all fields explicitly
+      store.name = storeData.name || store.name;
+      store.phoneNumber = storeData.phoneNumber || store.phoneNumber;
+      store.address = storeData.address || store.address;
+      store.city = storeData.city || store.city;
+      store.state = storeData.state || store.state;
+      store.country = storeData.country || store.country;
+      store.postalCode = storeData.postalCode || store.postalCode;
+      store.description = storeData.description || store.description;
+      store.currency = storeData.currency || store.currency;
+      store.timezone = storeData.timezone || store.timezone;
+      store.logo = storeData.logo !== undefined ? storeData.logo : store.logo;
       store.email = emailToUse;
+      store.status = storeData.status || store.status;
+
+      // Handle businessHours if provided
+      if (storeData.businessHours && Array.isArray(storeData.businessHours)) {
+        store.businessHours = storeData.businessHours;
+      }
+
+      console.log('Updating store with fields:', {
+        name: store.name,
+        city: store.city,
+        state: store.state,
+        country: store.country,
+        postalCode: store.postalCode,
+        description: store.description,
+      });
+
       await store.save();
-      console.log('Updated store:', store._id);
+      console.log('Store updated successfully:', store._id);
     } else {
       // Create new store (admin's first profile save)
-      // Generate storeId if not provided
       const newStoreData = {
-        ...storeData,
-        email: emailToUse, // Use auth email if frontend doesn't send
+        name: storeData.name,
+        email: emailToUse,
+        phoneNumber: storeData.phoneNumber,
+        address: storeData.address,
+        city: storeData.city || '',
+        state: storeData.state || '',
+        country: storeData.country || '',
+        postalCode: storeData.postalCode || '',
+        description: storeData.description || '',
+        currency: storeData.currency || 'USD',
+        timezone: storeData.timezone || 'UTC',
+        logo: storeData.logo || null,
         storeId: storeData.storeId || `store_${Date.now()}`,
         status: 'active',
+        businessHours: storeData.businessHours || [],
       };
+
       console.log('Creating new store with data:', newStoreData);
       store = await Store.create(newStoreData);
-      console.log('Created store:', store._id);
+      console.log('Store created successfully:', store._id);
 
       // Auto-generate QR code
       try {
         const qrCodeDataURL = await generateQRCodeDataURL(store._id!.toString());
         store.qrCode = qrCodeDataURL;
+        (store as any).qrGeneratedAt = new Date();
         await store.save();
         console.log('QR code generated:', store.qrCode?.substring(0, 50) + '...');
       } catch (qrError) {
@@ -482,6 +539,7 @@ export const generateStoreQRCode = async (
     try {
       const qrCodeDataURL = await generateQRCodeDataURL(store._id!.toString());
       store.qrCode = qrCodeDataURL;
+      (store as any).qrGeneratedAt = new Date();
       await store.save();
 
       res.status(200).json({

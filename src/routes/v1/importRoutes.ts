@@ -1,61 +1,70 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import multer from 'multer';
+import path from 'path';
+import * as fs from 'fs';
 import { protect } from '../../controllers/authController.ts';
+import * as importController from '../../controllers/importController.ts';
 
 const router = Router();
 
-/**
- * Bulk import middleware - verify admin role
- * @param {Request} req - Express request object
- * @param {Response} res - Express response object
- * @param {NextFunction} next - Express next middleware function
- */
-const adminAuth = (req: any, res: Response, next: NextFunction) => {
-  if (req.user && req.user.role === 'admin') {
-    next();
-  } else {
-    res.status(403).json({ message: 'Admin access required' });
+const uploadsDir = path.join(process.cwd(), 'uploads');
+
+// Ensure uploads directory exists
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  },
+});
+
+const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  const allowedExts = ['.csv', '.xlsx', '.xls'];
+
+  if (allowedExts.includes(ext)) {
+    return cb(null, true);
   }
+
+  cb(new Error(`Unsupported file type: ${ext}. Supported formats: CSV, XLSX, XLS`));
 };
 
-/**
- * TODO: Re-enable admin auth after testing
- * Apply auth to all import routes
- * router.use(protect, adminAuth);
- */
-
-/**
- * POST /imports/upload
- * Upload and process bulk product import file (admin only)
- * @param {File} file - CSV or Excel file with product data
- * @returns {object} Import result (200)
- */
-router.post('/upload', (req: Request, res: Response) => {
-  res.json({ message: 'Bulk import endpoint - TODO' });
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter,
 });
 
 /**
- * GET /imports
- * Get import history with pagination (admin only)
+ * POST /api/v1/imports/upload
+ * Upload and process bulk product import file
+ * @param {File} file - CSV file with product data
+ * @returns {object} Import result with success count and errors
+ */
+router.post('/upload', protect, upload.single('file'), importController.importProducts);
+
+/**
+ * GET /api/v1/imports
+ * Get import history with pagination
  * @query {number} page - Page number (default: 1)
  * @query {number} limit - Results per page (default: 10)
- * @returns {object} Import history with metadata (200)
+ * @returns {object} Import history with metadata
  */
-router.get('/', (req: Request, res: Response) => {
+router.get('/', protect, (req: Request, res: Response) => {
   const { page = 1, limit = 10 } = req.query;
   res.json({
     data: [],
     meta: { total: 0, page, limit }
   });
-});
-
-/**
- * GET /imports/:id
- * Get details of a specific import (admin only)
- * @param {string} id - Import ID
- * @returns {object} Import details including status and results (200)
- */
-router.get('/:id', (req: Request, res: Response) => {
-  res.json({ message: 'Get import details - TODO' });
 });
 
 export default router;
