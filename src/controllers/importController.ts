@@ -192,9 +192,9 @@ export const importProducts = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
-  try {
-    const startTime = Date.now();
+  const startTime = Date.now();
 
+  try {
     if (!req.file) {
       return next(new AppError('No file uploaded', 400));
     }
@@ -302,7 +302,7 @@ export const importProducts = async (
       message: `Imported ${result.success} products. ${result.duplicates} duplicates skipped. ${result.failed} records failed.`,
     });
   } catch (err) {
-    const processingTimeMs = Date.now() - (startTime || Date.now());
+    const processingTimeMs = Date.now() - startTime;
     const storeId = req.user?.storeName || 'default-store';
     const createdBy = req.user?.name || 'unknown';
     const fileName = req.file?.originalname || 'unknown-file';
@@ -318,7 +318,14 @@ export const importProducts = async (
         duplicateRecords: 0,
         importStatus: 'failed',
         processingTimeMs,
-        errors: [{ error: err instanceof Error ? err.message : String(err) }],
+        errors: [
+          {
+            row: 0,
+            field: 'file',
+            value: fileName,
+            error: err instanceof Error ? err.message : String(err),
+          },
+        ],
       });
     } catch (historyErr) {
       console.error('Error creating import history record:', historyErr);
