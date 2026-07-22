@@ -10,7 +10,8 @@ import AppError from '../utils/appError.ts';
 import type { IProduct, CreateProductRequest } from '../types/index';
 import * as fs from 'fs';
 import * as readline from 'readline';
-import * as XLSX from 'xlsx';
+
+const XLSX = require('xlsx');
 
 interface ImportedRow {
   name?: string;
