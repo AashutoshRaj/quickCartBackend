@@ -155,6 +155,7 @@ export interface IOrder extends Document {
 export interface IStore extends Document {
   storeId: string;
   name: string;
+  email: string;
   logo?: string | null;
   address: string;
   phoneNumber: string;
@@ -229,6 +230,7 @@ export interface CreateOrderRequest {
 export interface CreateStoreRequest {
   storeId: string;
   name: string;
+  email: string;
   logo?: string;
   address: string;
   phoneNumber: string;

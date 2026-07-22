@@ -24,6 +24,12 @@ const storeSchema = new Schema<IStore>(
       required: [true, 'Store must have a name'],
       trim: true,
     },
+    email: {
+      type: String,
+      required: [true, 'Store must have an email'],
+      trim: true,
+      lowercase: true,
+    },
     logo: {
       type: String,
       default: null,
