@@ -389,3 +389,37 @@ export const getImportHistory = async (
     next(err);
   }
 };
+
+/**
+ * Get import record by ID
+ * GET /api/v1/imports/:id
+ */
+export const getImportById = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const storeId = req.user?.storeName || 'default-store';
+
+    const record = await ImportHistory.findOne({
+      _id: id,
+      storeId,
+    }).lean();
+
+    if (!record) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Import record not found',
+      });
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: record,
+    });
+  } catch (err) {
+    next(err);
+  }
+};

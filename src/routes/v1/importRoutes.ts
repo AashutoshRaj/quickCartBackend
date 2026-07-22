@@ -61,4 +61,12 @@ router.post('/upload', protect, upload.single('file'), importController.importPr
  */
 router.get('/', protect, importController.getImportHistory);
 
+/**
+ * GET /api/v1/imports/:id
+ * Get import record by ID (store-scoped)
+ * @param {string} id - Import record ID
+ * @returns {object} Import record details
+ */
+router.get('/:id', protect, importController.getImportById);
+
 export default router;
