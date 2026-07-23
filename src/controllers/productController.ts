@@ -130,6 +130,7 @@ export const getProductByBarcode = async (
 ): Promise<void> => {
   try {
     const { barcode } = req.params;
+    const { storeId } = req.query;
 
     // Validate barcode
     if (!barcode || barcode.trim().length === 0) {
@@ -141,6 +142,14 @@ export const getProductByBarcode = async (
 
     if (!product) {
       return next(new AppError('Product not found with this barcode', 404));
+    }
+
+    // Validate store if storeId provided (customer app scanning)
+    if (storeId) {
+      const storeIdStr = Array.isArray(storeId) ? storeId[0] : storeId;
+      if (product.storeId !== storeIdStr) {
+        return next(new AppError('This product belongs to another store. Please scan the correct store QR code before shopping.', 403));
+      }
     }
 
     res.status(200).json({

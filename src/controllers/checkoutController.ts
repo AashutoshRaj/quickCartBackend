@@ -68,6 +68,15 @@ export const createCheckoutSession = async (
       return next(new AppError('Your cart is empty.', 400));
     }
 
+    // Validate all cart items belong to this store
+    const cartProductIds = cart.items.map((item) => item.productId);
+    const products = await Product.find({ _id: { $in: cartProductIds } }).lean();
+
+    const invalidProducts = products.filter((p) => p.storeId && String(p.storeId) !== String(storeId));
+    if (invalidProducts.length > 0) {
+      return next(new AppError('Cart contains products from a different store. Please clear cart and start over.', 409));
+    }
+
     const line_items = cart.items.map((item) => ({
       price_data: {
         currency: 'inr',
