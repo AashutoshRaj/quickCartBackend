@@ -321,7 +321,15 @@ export const protect = async (
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as DecodedToken;
+    console.log('protect: decoded token id:', decoded.id);
+
     const currentUser = await User.findById(decoded.id);
+    console.log('protect: currentUser found:', !!currentUser);
+    if (currentUser) {
+      console.log('protect: currentUser email:', (currentUser as any).email);
+      console.log('protect: currentUser storeName:', (currentUser as any).storeName);
+      console.log('protect: currentUser phoneNumber:', (currentUser as any).phoneNumber);
+    }
 
     if (!currentUser) {
       return next(new AppError('The user belonging to this token no longer exists.', 401));

@@ -12,6 +12,7 @@ import {
   saveStoreProfile,
   generateStoreQRCode,
 } from '../../controllers/storeController.ts';
+import { protect } from '../../controllers/authController.ts';
 
 const router = Router();
 
@@ -24,7 +25,7 @@ const router = Router();
  * Get admin's store profile (admin only)
  * @returns {object} Store profile details (200)
  */
-router.get('/profile', getStoreProfile);
+router.get('/profile', protect, getStoreProfile);
 
 /**
  * POST/PATCH /stores/profile
@@ -32,15 +33,15 @@ router.get('/profile', getStoreProfile);
  * @param {object} storeData - Store information to save
  * @returns {object} Saved store profile (200)
  */
-router.post('/profile', saveStoreProfile);
-router.patch('/profile', saveStoreProfile);
+router.post('/profile', protect, saveStoreProfile);
+router.patch('/profile', protect, saveStoreProfile);
 
 /**
  * POST /stores/profile/generate-qr
  * Generate QR code for admin's store (admin only)
  * @returns {object} Store with generated QR code (200)
  */
-router.post('/profile/generate-qr', generateStoreQRCode);
+router.post('/profile/generate-qr', protect, generateStoreQRCode);
 
 /**
  * Public Store Endpoints

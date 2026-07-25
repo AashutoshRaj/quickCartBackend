@@ -5,6 +5,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import Store from '../models/storeModel.ts';
+import User from '../models/userModel.ts';
 import AppError from '../utils/appError.ts';
 import { generateQRCodeDataURL } from '../utils/qrCodeGenerator.ts';
 import type { IStore, CreateStoreRequest } from '../types/index';
@@ -341,7 +342,7 @@ export const deleteStore = async (
 
 /**
  * Get admin's store profile
- * Admin accesses their store profile from settings
+ * Auto-creates store on first visit if it doesn't exist
  * @param req - Express request with userId from auth
  * @param res - Express response
  * @param next - Express next function
@@ -353,30 +354,111 @@ export const getStoreProfile = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    // TODO: Get storeId from authenticated user/context
-    // For now, fetch the first active store
-    const store = await Store.findOne({ status: 'active' });
+    let authUserEmail = (req as any).user?.email;
+    const userId = (req as any).user?._id;
 
-    if (!store) {
-      return next(new AppError('No store profile found. Please create one first.', 404));
+    console.log('getStoreProfile: userId =', userId);
+    console.log('getStoreProfile: authUserEmail =', authUserEmail);
+
+    // If email not in req.user, fetch user again to get email
+    if (!authUserEmail && userId) {
+      console.log('getStoreProfile: Email missing, fetching user by ID...');
+      const userDoc = await User.findById(userId);
+      authUserEmail = userDoc?.email;
+      console.log('getStoreProfile: Fetched email:', authUserEmail);
     }
 
-    // Debug: log what we're retrieving
-    console.log('Backend: Retrieved store from DB:', {
+    if (!authUserEmail) {
+      console.error('getStoreProfile: No authenticated user email found');
+      return next(new AppError('User authentication required', 401));
+    }
+
+    // Try to find store by email (admin's email)
+    let store = await Store.findOne({ email: authUserEmail });
+    console.log('getStoreProfile: Store found?', !!store);
+
+    // If no store exists, create one with user's signup data
+    if (!store) {
+      console.log('getStoreProfile: No store found. Creating new store...');
+      console.log('getStoreProfile: Store create data:', {
+        name: (req as any).user?.storeName,
+        email: authUserEmail,
+        phoneNumber: (req as any).user?.phoneNumber,
+      });
+
+      try {
+        const storeData = {
+          name: (req as any).user?.storeName || 'My Store',
+          email: authUserEmail,
+          phoneNumber: (req as any).user?.phoneNumber || '',
+          address: '',
+          city: '',
+          state: '',
+          country: '',
+          postalCode: '',
+          description: '',
+          currency: 'USD',
+          timezone: 'UTC',
+          storeId: `store_${Date.now()}`,
+          status: 'active',
+        };
+
+        console.log('getStoreProfile: Creating store with data:', storeData);
+        const newStore = await Store.create(storeData);
+        console.log('getStoreProfile: Store created successfully:', {
+          _id: newStore._id,
+          name: newStore.name,
+          email: newStore.email,
+          phoneNumber: newStore.phoneNumber,
+        });
+
+        // Auto-generate QR code
+        try {
+          const { generateQRCodeDataURL } = await import('../utils/qrCodeGenerator.ts');
+          const qrCodeDataURL = await generateQRCodeDataURL(newStore._id!.toString());
+          newStore.qrCode = qrCodeDataURL;
+          (newStore as any).qrGeneratedAt = new Date();
+          await newStore.save();
+          console.log('getStoreProfile: QR code generated');
+        } catch (qrError) {
+          console.warn('getStoreProfile: QR code generation failed:', qrError);
+        }
+
+        store = newStore;
+      } catch (createErr: any) {
+        console.error('getStoreProfile: Error creating store:', createErr.message);
+        console.error('getStoreProfile: Error code:', createErr.code);
+        console.error('getStoreProfile: Full error:', createErr);
+
+        // If auto-create fails, return empty store instead of error
+        console.log('getStoreProfile: Returning default store due to create error');
+        return res.status(200).json({
+          status: 'success',
+          data: {
+            store: {
+              name: (req as any).user?.storeName || '',
+              email: authUserEmail,
+              phoneNumber: (req as any).user?.phoneNumber || '',
+              address: '',
+              city: '',
+              state: '',
+              country: '',
+              postalCode: '',
+              description: '',
+              currency: 'USD',
+              timezone: 'UTC',
+              status: 'active',
+            },
+          },
+        });
+      }
+    }
+
+    console.log('getStoreProfile: Returning store:', {
       _id: store._id,
       name: store.name,
       email: store.email,
       phoneNumber: store.phoneNumber,
-      address: store.address,
-      city: store.city,
-      state: store.state,
-      country: store.country,
-      postalCode: store.postalCode,
-      description: store.description,
-      currency: store.currency,
-      timezone: store.timezone,
-      logo: store.logo ? 'Yes' : 'No',
-      qrCode: store.qrCode ? 'Yes' : 'No',
     });
 
     res.status(200).json({
@@ -384,6 +466,7 @@ export const getStoreProfile = async (
       data: { store },
     });
   } catch (err) {
+    console.error('getStoreProfile: Unexpected error:', err);
     next(err);
   }
 };
@@ -405,22 +488,21 @@ export const saveStoreProfile = async (
     const storeData = req.body;
     console.log('saveStoreProfile - incoming data:', storeData);
 
-    // Get authenticated user's email as fallback
-    // email should be sent from frontend, but use auth user's email if missing
+    // Get authenticated user's email - ALWAYS use this, never trust frontend email
     const authUserEmail = (req as any).user?.email;
-    console.log('Auth user email:', authUserEmail);
+    if (!authUserEmail) {
+      return next(new AppError('User authentication required', 401));
+    }
+    console.log('Auth user email (from user account):', authUserEmail);
 
     // Validate required fields
     if (!storeData.name?.trim()) {
       return next(new AppError('Store name is required', 400));
     }
 
-    // Use frontend email if provided and non-empty, otherwise use auth user's email
-    const emailToUse = storeData.email?.trim() || authUserEmail;
-    if (!emailToUse) {
-      return next(new AppError('Email is required (from form or account)', 400));
-    }
-    console.log('Using email:', emailToUse);
+    // ALWAYS use authenticated user's email - security: never trust frontend email
+    const emailToUse = authUserEmail;
+    console.log('Store profile email set to:', emailToUse);
 
     if (!storeData.phoneNumber?.trim()) {
       return next(new AppError('Phone number is required', 400));

@@ -21,7 +21,6 @@ const userSchema = new Schema<IUser>(
       unique: true,
       sparse: true,
       trim: true,
-      match: [/^\+[1-9]\d{9,14}$/, 'Please provide a valid E.164 phone number'],
     },
     email: {
       type: String,

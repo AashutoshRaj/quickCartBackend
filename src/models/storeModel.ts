@@ -61,8 +61,8 @@ const storeSchema = new Schema<IStore>(
     },
     phoneNumber: {
       type: String,
-      required: [true, 'Store must have a phone number'],
       trim: true,
+      default: '',
     },
     description: {
       type: String,
