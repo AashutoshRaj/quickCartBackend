@@ -28,7 +28,7 @@ router.get('/barcode/:barcode', productController.getProductByBarcode);
  */
 router
   .route('/')
-  .get(productController.getAllProducts)
+  .get(protect, productController.getAllProducts)
   .post(protect, productController.createProduct);
 
 /**

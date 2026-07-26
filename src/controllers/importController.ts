@@ -7,6 +7,7 @@ import { Request, Response, NextFunction } from 'express';
 import Product from '../models/productModel.ts';
 import ImportHistory from '../models/importHistoryModel.ts';
 import AppError from '../utils/appError.ts';
+import { getAuthenticatedStoreId } from '../utils/getAuthenticatedStore.ts';
 import type { IProduct, CreateProductRequest } from '../types/index';
 import * as fs from 'fs';
 import * as readline from 'readline';
@@ -204,7 +205,7 @@ export const importProducts = async (
       return next(new AppError('No file uploaded', 400));
     }
 
-    const storeId = req.user?.storeName || 'default-store';
+    const storeId = await getAuthenticatedStoreId(req);
     const createdBy = req.user?.name || 'unknown';
     const filePath = req.file.path;
     const fileName = req.file.originalname;
@@ -314,7 +315,7 @@ export const importProducts = async (
     });
   } catch (err) {
     const processingTimeMs = Date.now() - startTime;
-    const storeId = req.user?.storeName || 'default-store';
+    const storeId = await getAuthenticatedStoreId(req).catch(() => 'unknown-store');
     const createdBy = req.user?.name || 'unknown';
     const fileName = req.file?.originalname || 'unknown-file';
 
@@ -366,7 +367,7 @@ export const getImportHistory = async (
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const skip = (page - 1) * limit;
-    const storeId = req.user?.storeName || 'default-store';
+    const storeId = await getAuthenticatedStoreId(req);
 
     const total = await ImportHistory.countDocuments({ storeId });
     const history = await ImportHistory.find({ storeId })
@@ -401,7 +402,7 @@ export const getImportById = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const storeId = req.user?.storeName || 'default-store';
+    const storeId = await getAuthenticatedStoreId(req);
 
     const record = await ImportHistory.findOne({
       _id: id,

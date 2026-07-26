@@ -425,6 +425,13 @@ export const getStoreProfile = async (
         }
 
         store = newStore;
+
+        // Persist real storeId onto admin's user record so product/import/cart
+        // controllers (which read req.user.storeName as the storeId) work correctly
+        if ((req as any).user?._id) {
+          await User.findByIdAndUpdate((req as any).user._id, { storeName: store.storeId });
+          (req as any).user.storeName = store.storeId;
+        }
       } catch (createErr: any) {
         console.error('getStoreProfile: Error creating store:', createErr.message);
         console.error('getStoreProfile: Error code:', createErr.code);
@@ -452,6 +459,13 @@ export const getStoreProfile = async (
           },
         });
       }
+    }
+
+    // Self-heal: keep admin user's storeName in sync with the real storeId,
+    // so product/import/cart controllers reading req.user.storeName stay correct
+    if ((req as any).user?._id && (req as any).user?.storeName !== store.storeId) {
+      await User.findByIdAndUpdate((req as any).user._id, { storeName: store.storeId });
+      (req as any).user.storeName = store.storeId;
     }
 
     console.log('getStoreProfile: Returning store:', {
@@ -582,6 +596,13 @@ export const saveStoreProfile = async (
       } catch (qrError) {
         console.warn('QR code auto-generation failed:', qrError);
       }
+    }
+
+    // Self-heal: keep admin user's storeName in sync with the real storeId,
+    // so product/import/cart controllers reading req.user.storeName stay correct
+    if ((req as any).user?._id && (req as any).user?.storeName !== store.storeId) {
+      await User.findByIdAndUpdate((req as any).user._id, { storeName: store.storeId });
+      (req as any).user.storeName = store.storeId;
     }
 
     console.log('Sending response:', store);

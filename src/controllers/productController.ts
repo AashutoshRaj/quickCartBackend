@@ -6,6 +6,7 @@
 import { Request, Response, NextFunction } from 'express';
 import Product from '../models/productModel.ts';
 import AppError from '../utils/appError.ts';
+import { getAuthenticatedStoreId } from '../utils/getAuthenticatedStore.ts';
 import type { IProduct, CreateProductRequest } from '../types/index';
 
 /**
@@ -73,7 +74,7 @@ export const getAllProducts = async (
     const category = (req.query.category as string) || '';
     const status = (req.query.status as string) || '';
     const skip = (page - 1) * limit;
-    const storeId = req.user?.storeName || req.query.storeId || 'default-store';
+    const storeId = await getAuthenticatedStoreId(req);
 
     let query: Record<string, unknown> = { storeId };
 
@@ -175,9 +176,10 @@ export const createProduct = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const storeId = await getAuthenticatedStoreId(req);
     const productData = {
       ...req.body,
-      storeId: req.body.storeId || req.user?.storeName || 'default-store',
+      storeId,
       createdBy: req.user?.name || 'unknown',
     };
 

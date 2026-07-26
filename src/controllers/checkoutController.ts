@@ -7,6 +7,7 @@ import { Request, Response, NextFunction } from 'express';
 import Stripe from 'stripe';
 import Cart from '../models/cartModel.ts';
 import Order from '../models/orderModel.ts';
+import Product from '../models/productModel.ts';
 import AppError from '../utils/appError.ts';
 import type { IOrder } from '../types/index';
 

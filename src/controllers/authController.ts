@@ -324,11 +324,17 @@ export const protect = async (
     console.log('protect: decoded token id:', decoded.id);
 
     const currentUser = await User.findById(decoded.id);
+    console.log('protect: decoded.id:', decoded.id);
     console.log('protect: currentUser found:', !!currentUser);
     if (currentUser) {
       console.log('protect: currentUser email:', (currentUser as any).email);
       console.log('protect: currentUser storeName:', (currentUser as any).storeName);
       console.log('protect: currentUser phoneNumber:', (currentUser as any).phoneNumber);
+    } else {
+      console.warn('protect: User not found in database for ID:', decoded.id);
+      console.log('protect: All users in database:');
+      const allUsers = await User.find({}).select('_id email name role');
+      console.log(JSON.stringify(allUsers, null, 2));
     }
 
     if (!currentUser) {
