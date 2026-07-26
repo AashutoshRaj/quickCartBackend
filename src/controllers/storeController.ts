@@ -373,8 +373,16 @@ export const getStoreProfile = async (
       return next(new AppError('User authentication required', 401));
     }
 
-    // Try to find store by email (admin's email)
-    let store = await Store.findOne({ email: authUserEmail });
+    // Try to find store by owner first (reliable), then fall back to email
+    // (legacy stores created before ownerId existed) and backfill ownerId
+    let store = await Store.findOne({ ownerId: userId });
+    if (!store) {
+      store = await Store.findOne({ email: authUserEmail });
+      if (store && !store.ownerId) {
+        store.ownerId = userId;
+        await store.save();
+      }
+    }
     console.log('getStoreProfile: Store found?', !!store);
 
     // If no store exists, create one with user's signup data
@@ -390,6 +398,7 @@ export const getStoreProfile = async (
         const storeData = {
           name: (req as any).user?.storeName || 'My Store',
           email: authUserEmail,
+          ownerId: userId,
           phoneNumber: (req as any).user?.phoneNumber || '',
           address: '',
           city: '',
@@ -502,11 +511,13 @@ export const saveStoreProfile = async (
     const storeData = req.body;
     console.log('saveStoreProfile - incoming data:', storeData);
 
-    // Get authenticated user's email - ALWAYS use this, never trust frontend email
-    const authUserEmail = (req as any).user?.email;
-    if (!authUserEmail) {
+    const userId = (req as any).user?._id;
+    if (!userId) {
       return next(new AppError('User authentication required', 401));
     }
+
+    // Get authenticated user's email - ALWAYS use this, never trust frontend email
+    const authUserEmail = (req as any).user?.email;
     console.log('Auth user email (from user account):', authUserEmail);
 
     // Validate required fields
@@ -525,9 +536,16 @@ export const saveStoreProfile = async (
       return next(new AppError('Address is required', 400));
     }
 
-    // TODO: Get storeId from authenticated user/context
-    // For now, update or create first store
-    let store = await Store.findOne({ status: 'active' });
+    // Scope to THIS admin's own store only - never touch another store's
+    // document. Try ownerId first (reliable), then email for legacy stores
+    // created before ownerId existed (and backfill ownerId once found).
+    let store = await Store.findOne({ ownerId: userId });
+    if (!store && emailToUse) {
+      store = await Store.findOne({ email: emailToUse });
+      if (store && !store.ownerId) {
+        store.ownerId = userId;
+      }
+    }
     console.log('Found existing store:', store?._id);
 
     if (store) {
@@ -543,7 +561,7 @@ export const saveStoreProfile = async (
       store.currency = storeData.currency || store.currency;
       store.timezone = storeData.timezone || store.timezone;
       store.logo = storeData.logo !== undefined ? storeData.logo : store.logo;
-      store.email = emailToUse;
+      if (emailToUse) store.email = emailToUse;
       store.status = storeData.status || store.status;
 
       // Handle businessHours if provided
@@ -564,9 +582,14 @@ export const saveStoreProfile = async (
       console.log('Store updated successfully:', store._id);
     } else {
       // Create new store (admin's first profile save)
+      if (!emailToUse) {
+        return next(new AppError('An account email is required to create a store profile.', 400));
+      }
+
       const newStoreData = {
         name: storeData.name,
         email: emailToUse,
+        ownerId: userId,
         phoneNumber: storeData.phoneNumber,
         address: storeData.address,
         city: storeData.city || '',
@@ -577,7 +600,8 @@ export const saveStoreProfile = async (
         currency: storeData.currency || 'USD',
         timezone: storeData.timezone || 'UTC',
         logo: storeData.logo || null,
-        storeId: storeData.storeId || `store_${Date.now()}`,
+        // Never trust a client-supplied storeId - always generate server-side
+        storeId: `store_${Date.now()}`,
         status: 'active',
         businessHours: storeData.businessHours || [],
       };
@@ -630,9 +654,22 @@ export const generateStoreQRCode = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    // TODO: Get storeId from authenticated user/context
-    // For now, generate for first active store
-    const store = await Store.findOne({ status: 'active' });
+    const userId = (req as any).user?._id;
+    if (!userId) {
+      return next(new AppError('User authentication required', 401));
+    }
+
+    let store = await Store.findOne({ ownerId: userId });
+    if (!store) {
+      const authUserEmail = (req as any).user?.email;
+      if (authUserEmail) {
+        store = await Store.findOne({ email: authUserEmail });
+        if (store && !store.ownerId) {
+          store.ownerId = userId;
+          await store.save();
+        }
+      }
+    }
 
     if (!store) {
       return next(new AppError('No store found. Please create store profile first.', 404));

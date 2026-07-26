@@ -170,6 +170,7 @@ export interface IBusinessHours {
 
 export interface IStore extends Document {
   storeId: string;
+  ownerId?: string;
   name: string;
   email: string;
   logo?: string | null;

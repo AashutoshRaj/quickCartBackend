@@ -52,7 +52,7 @@ router
  */
 router
   .route('/:id')
-  .get(productController.getProduct)
+  .get(protect, productController.getProduct)
   .patch(protect, productController.updateProduct)
   .delete(protect, productController.deleteProduct);
 

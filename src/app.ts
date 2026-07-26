@@ -68,7 +68,9 @@ const limiter = rateLimit({
 app.use('/api', limiter);
 
 // Body parser, reading data from body into req.body
-app.use(express.json({ limit: '10kb' }));
+// 10mb covers base64-encoded store logo uploads (frontend caps raw file at
+// 5MB; base64 adds ~33% overhead, plus room for the rest of the JSON payload)
+app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 
 // Serve static files

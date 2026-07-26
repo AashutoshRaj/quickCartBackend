@@ -19,6 +19,11 @@ const storeSchema = new Schema<IStore>(
       trim: true,
       index: true,
     },
+    ownerId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      index: true,
+    },
     name: {
       type: String,
       required: [true, 'Store must have a name'],

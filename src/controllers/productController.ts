@@ -207,7 +207,8 @@ export const getProduct = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const product = await Product.findById(req.params.id);
+    const storeId = await getAuthenticatedStoreId(req);
+    const product = await Product.findOne({ _id: req.params.id, storeId });
     if (!product) return next(new AppError('No product found with that ID', 404));
 
     res.status(200).json({
@@ -233,7 +234,12 @@ export const updateProduct = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
+    const storeId = await getAuthenticatedStoreId(req);
+
+    // Never let a client reassign a product to another store via update payload
+    const { storeId: _ignoredStoreId, ...updateData } = req.body as Partial<CreateProductRequest> & { storeId?: string };
+
+    const product = await Product.findOneAndUpdate({ _id: req.params.id, storeId }, updateData, {
       new: true,
       runValidators: true,
     });
@@ -262,7 +268,8 @@ export const deleteProduct = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const product = await Product.findByIdAndDelete(req.params.id);
+    const storeId = await getAuthenticatedStoreId(req);
+    const product = await Product.findOneAndDelete({ _id: req.params.id, storeId });
     if (!product) return next(new AppError('No product found with that ID', 404));
 
     res.status(204).json({
