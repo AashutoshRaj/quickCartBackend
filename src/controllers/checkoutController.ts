@@ -8,6 +8,7 @@ import Stripe from 'stripe';
 import Cart from '../models/cartModel.ts';
 import Order from '../models/orderModel.ts';
 import Product from '../models/productModel.ts';
+import Store from '../models/storeModel.ts';
 import AppError from '../utils/appError.ts';
 import type { IOrder } from '../types/index';
 
@@ -58,15 +59,26 @@ export const createCheckoutSession = async (
 ): Promise<void> => {
   try {
     const customerId = req.user?._id;
-    const storeId = req.body?.storeId || (req.query?.storeId as string) || 'default-store';
+    const storeId = req.body?.storeId || (req.query?.storeId as string);
 
     if (!customerId) {
       return next(new AppError('You must be logged in to checkout.', 401));
     }
 
+    if (!storeId) {
+      return next(new AppError('Store ID is required to checkout.', 400));
+    }
+
     const cart = await Cart.findOne({ customerId, storeId, status: 'active' }).lean();
     if (!cart || !cart.items?.length) {
       return next(new AppError('Your cart is empty.', 400));
+    }
+
+    // Always resolve the store name/address from the store the customer is
+    // actually shopping at - never trust a hardcoded default or stale cart field
+    const storeDoc = await Store.findOne({ storeId }).lean();
+    if (!storeDoc) {
+      return next(new AppError('Store not found for this checkout session.', 404));
     }
 
     // Validate all cart items belong to this store
@@ -115,8 +127,8 @@ export const createCheckoutSession = async (
       sessionId: session.id,
       customerId,
       storeId,
-      storeName: (cart as unknown as Record<string, unknown>).storeName || 'QuickCart Store',
-      storeAddress: (cart as unknown as Record<string, unknown>).storeAddress,
+      storeName: storeDoc.name,
+      storeAddress: storeDoc.address,
       items: cart.items.map((item) => ({
         productId: item.productId,
         name: item.productName,
