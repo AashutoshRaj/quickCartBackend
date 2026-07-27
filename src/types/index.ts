@@ -14,8 +14,24 @@ declare global {
     interface Request {
       user?: IUser;
       userId?: string;
+      staffActor?: StaffActor;
     }
   }
+}
+
+/**
+ * Authenticated staff actor (Security Guard or Employee) attached by
+ * protectStaff.ts middleware — separate from the customer/admin `user` above.
+ */
+export interface StaffActor {
+  actorType: 'guard' | 'employee';
+  id: string;
+  employeeId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  storeId: string;
+  status: string;
 }
 
 /**
@@ -188,6 +204,81 @@ export interface IStore extends Document {
   isActive: boolean;
   qrCode?: string | null;
   qrGeneratedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Security Guard Document Interface
+ */
+export interface ISecurityGuard extends Document {
+  employeeId: string;
+  firstName: string;
+  lastName: string;
+  photo?: string | null;
+  mobileNumber: string;
+  email: string;
+  password: string;
+  storeId: string;
+  shift: 'Morning' | 'Afternoon' | 'Night';
+  joiningDate: Date;
+  employeeCode?: string;
+  status: 'active' | 'inactive';
+  permissions: {
+    login: boolean;
+    scanExitQr: boolean;
+    viewOrderDetails: boolean;
+    verifyExit: boolean;
+    viewVerificationHistory: boolean;
+    reportIssues: boolean;
+  };
+  todayVerifications: number;
+  weekVerifications: number;
+  monthVerifications: number;
+  totalOrdersVerified: number;
+  reportedIssuesCount: number;
+  lastLogin?: Date | null;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Exit Verification Document Interface
+ * Audit record of a guard approving a customer's exit for a given order
+ */
+export interface IExitVerification extends Document {
+  sessionId: string;
+  orderId: string;
+  orderNumber: string;
+  storeId: string;
+  guardId: string;
+  guardName: string;
+  customerName: string;
+  totalAmount: number;
+  itemsCount: number;
+  verifiedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Employee Document Interface
+ */
+export interface IEmployee extends Document {
+  employeeId: string;
+  firstName: string;
+  lastName: string;
+  photo?: string | null;
+  role: 'Admin' | 'Manager' | 'Cashier' | 'Inventory Staff';
+  email: string;
+  phone: string;
+  password: string;
+  storeId: string;
+  joiningDate: Date;
+  status: 'Active' | 'On Leave' | 'Inactive';
+  lastLogin?: Date | null;
+  createdBy: string;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -8,6 +8,10 @@ import userRoutes from './v1/userRoutes.ts';
 import storeRoutes from './v1/storeRoutes.ts';
 import adminRoutes from './v1/adminRoutes.ts';
 import importRoutes from './v1/importRoutes.ts';
+import securityGuardRoutes from './v1/securityGuardRoutes.ts';
+import employeeRoutes from './v1/employeeRoutes.ts';
+import staffAuthRoutes from './v1/staffAuthRoutes.ts';
+import staffRoutes from './v1/staffRoutes.ts';
 
 const router = Router();
 
@@ -69,5 +73,29 @@ router.use('/admin', adminRoutes);
  * Bulk import management routes
  */
 router.use('/imports', importRoutes);
+
+/**
+ * GET/POST/PATCH/DELETE /security-guards
+ * Security Guard account management routes (admin only)
+ */
+router.use('/security-guards', securityGuardRoutes);
+
+/**
+ * GET/POST/PATCH/DELETE /employees
+ * Staff employee account management routes (admin only)
+ */
+router.use('/employees', employeeRoutes);
+
+/**
+ * POST /staff/auth/login
+ * Staff (Security Guard / Employee) mobile app login (public)
+ */
+router.use('/staff/auth', staffAuthRoutes);
+
+/**
+ * GET/POST /staff/*
+ * Security Guard exit-verification routes (requires staff session)
+ */
+router.use('/staff', staffRoutes);
 
 export default router;

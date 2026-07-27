@@ -26,12 +26,14 @@
     "morgan": "^1.10.1",
     "msg91-sms": "^1.0.1",
     "multer": "^2.2.0",
+    "nodemailer": "^9.0.3",
     "qrcode": "^1.5.4",
     "stripe": "^22.3.1",
     "twilio": "^6.0.2",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@types/nodemailer": "^8.0.1",
     "nodemon": "^3.1.14",
     "tsx": "^4.23.1"
   }
