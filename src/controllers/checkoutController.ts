@@ -10,11 +10,49 @@ import Order from '../models/orderModel.ts';
 import Product from '../models/productModel.ts';
 import Store from '../models/storeModel.ts';
 import AppError from '../utils/appError.ts';
-import type { IOrder } from '../types/index';
+import type { ICart, ICartItem, IOrder } from '../types/index.ts';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2025-04-30.basil',
+  apiVersion: '2026-06-24.dahlia',
 });
+
+const normalizeFrontendUrl = (value: string): string => value.trim().replace(/\/$/, '');
+
+const getValidImageUrl = (value?: string): string | undefined => {
+  if (!value) return undefined;
+
+  try {
+    const imageUrl = new URL(value);
+    return imageUrl.protocol === 'http:' || imageUrl.protocol === 'https:'
+      ? imageUrl.toString()
+      : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const getCheckoutFrontendUrl = (req: Request): string => {
+  const configuredUrls = (process.env.FRONTEND_URL || '')
+    .split(',')
+    .map(normalizeFrontendUrl)
+    .filter(Boolean);
+
+  const supportedUrls = new Set([
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:5174',
+    'https://quick-cart-shop-two.vercel.app',
+    ...configuredUrls,
+  ]);
+
+  const requestOrigin = req.headers.origin;
+  if (requestOrigin && supportedUrls.has(normalizeFrontendUrl(requestOrigin))) {
+    return normalizeFrontendUrl(requestOrigin);
+  }
+
+  return configuredUrls[0] || 'http://localhost:5173';
+};
 
 /**
  * Request body for checkout operations
@@ -69,7 +107,7 @@ export const createCheckoutSession = async (
       return next(new AppError('Store ID is required to checkout.', 400));
     }
 
-    const cart = await Cart.findOne({ customerId, storeId, status: 'active' }).lean();
+    const cart = await Cart.findOne({ customerId, storeId, status: 'active' }).lean<ICart>();
     if (!cart || !cart.items?.length) {
       return next(new AppError('Your cart is empty.', 400));
     }
@@ -82,7 +120,7 @@ export const createCheckoutSession = async (
     }
 
     // Validate all cart items belong to this store
-    const cartProductIds = cart.items.map((item) => item.productId);
+    const cartProductIds = cart.items.map((item: ICartItem) => item.productId);
     const products = await Product.find({ _id: { $in: cartProductIds } }).lean();
 
     const invalidProducts = products.filter((p) => p.storeId && String(p.storeId) !== String(storeId));
@@ -90,23 +128,27 @@ export const createCheckoutSession = async (
       return next(new AppError('Cart contains products from a different store. Please clear cart and start over.', 409));
     }
 
-    const line_items = cart.items.map((item) => ({
+    const line_items = cart.items.map((item: ICartItem) => ({
       price_data: {
         currency: 'inr',
         product_data: {
           name: item.productName,
-          images: item.productImage ? [item.productImage] : [],
+          ...(getValidImageUrl(item.productImage)
+            ? { images: [getValidImageUrl(item.productImage)] }
+            : {}),
         },
         unit_amount: Math.round(Number(item.price || 0) * 100),
       },
       quantity: Number(item.quantity || 1),
     }));
 
+    const frontendUrl = getCheckoutFrontendUrl(req);
+
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       line_items,
-      success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-cancel`,
+      success_url: `${frontendUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${frontendUrl}/payment-cancel`,
       customer_email: req.user?.email || undefined,
       metadata: {
         customerId: String(customerId),
@@ -118,7 +160,10 @@ export const createCheckoutSession = async (
 
     // Calculate order totals
     const TAX_RATE = 0.05;
-    const subtotal = cart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const subtotal = cart.items.reduce(
+      (sum: number, item: ICartItem) => sum + (item.price * item.quantity),
+      0
+    );
     const tax = Number((subtotal * TAX_RATE).toFixed(2));
     const discount = Number(cart.discount || 0);
     const total = Number((subtotal + tax - discount).toFixed(2));
@@ -129,7 +174,7 @@ export const createCheckoutSession = async (
       storeId,
       storeName: storeDoc.name,
       storeAddress: storeDoc.address,
-      items: cart.items.map((item) => ({
+      items: cart.items.map((item: ICartItem) => ({
         productId: item.productId,
         name: item.productName,
         price: item.price,
