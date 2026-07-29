@@ -56,10 +56,10 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "https://control.msg91.com"],
-        frameSrc: ["'self'", "https://control.msg91.com", "https://*.hcaptcha.com"],
-        connectSrc: ["'self'", "https://control.msg91.com"],
-        imgSrc: ["'self'", "data:", "https://control.msg91.com", "https://*.hcaptcha.com"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        frameSrc: ["'self'", "https://*.hcaptcha.com"],
+        connectSrc: ["'self'"],
+        imgSrc: ["'self'", "data:", "https://*.hcaptcha.com"],
       },
     },
     crossOriginEmbedderPolicy: false,
