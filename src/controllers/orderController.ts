@@ -6,7 +6,29 @@
 import { Request, Response, NextFunction } from 'express';
 import Order from '../models/orderModel.ts';
 import AppError from '../utils/appError.ts';
-import type { IOrder } from '../types/index';
+import type { IOrder } from '../types/index.ts';
+
+const SUPPORTED_CURRENCIES = ['USD', 'EUR', 'GBP', 'INR', 'JPY', 'AUD', 'CAD', 'AED'] as const;
+
+type CurrencyCode = (typeof SUPPORTED_CURRENCIES)[number];
+
+const normalizeCurrencyCode = (currency?: string): CurrencyCode => {
+  if (!currency || typeof currency !== 'string') {
+    return 'USD';
+  }
+
+  const normalized = currency.toUpperCase();
+  return SUPPORTED_CURRENCIES.includes(normalized as CurrencyCode) ? (normalized as CurrencyCode) : 'USD';
+};
+
+const formatOrderCurrency = (value: number, currency?: string, maximumFractionDigits = 2): string => {
+  const normalizedCurrency = normalizeCurrencyCode(currency);
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: normalizedCurrency,
+    maximumFractionDigits,
+  }).format(value);
+};
 
 /**
  * Response type for orders list
@@ -183,6 +205,7 @@ export const downloadInvoice = async (
  * @returns Buffer containing invoice content
  */
 function generateInvoiceContent(order: Record<string, unknown>): Buffer {
+  const orderCurrency = (order.currency as string) || 'USD';
   const items = (order.items || []) as Array<{
     name?: string;
     productName?: string;
@@ -192,12 +215,13 @@ function generateInvoiceContent(order: Record<string, unknown>): Buffer {
   }>;
 
   const itemsText = items
-    ?.map(
-      (item, idx) =>
-        `${idx + 1}. ${item.name || item.productName}
-   Quantity: ${item.quantity}x @ $${(item.price || item.unitPrice || 0).toFixed(2)}
-   Subtotal: $${((item.price || item.unitPrice || 0) * (item.quantity || 0)).toFixed(2)}`
-    )
+    ?.map((item, idx) => {
+      const unitPrice = (item.price || item.unitPrice || 0) as number;
+      const quantity = item.quantity || 0;
+      return `${idx + 1}. ${item.name || item.productName}
+   Quantity: ${quantity}x @ ${formatOrderCurrency(unitPrice, orderCurrency)}
+   Subtotal: ${formatOrderCurrency(unitPrice * quantity, orderCurrency)}`;
+    })
     .join('\n\n');
 
   const textContent = `
@@ -215,11 +239,11 @@ ITEMS PURCHASED
 ${itemsText}
 
 ORDER SUMMARY
-Subtotal: $${((order.subtotal || 0) as number).toFixed(2)}
-Tax: $${((order.tax || 0) as number).toFixed(2)}
-Discount: -$${((order.discount || 0) as number).toFixed(2)}
+Subtotal: ${formatOrderCurrency(((order.subtotal || 0) as number), orderCurrency)}
+Tax: ${formatOrderCurrency(((order.tax || 0) as number), orderCurrency)}
+Discount: -${formatOrderCurrency(((order.discount || 0) as number), orderCurrency)}
 ---
-TOTAL: $${((order.total || 0) as number).toFixed(2)}
+TOTAL: ${formatOrderCurrency(((order.total || 0) as number), orderCurrency)}
 
 PAYMENT
 Method: ${(order.paymentMethod || 'Card') as string}
