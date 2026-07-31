@@ -12,6 +12,7 @@ import {
   getAdminMe,
   adminLogout,
 } from '../../controllers/adminAuthController.ts';
+import { authLimiter } from '../../app.ts';
 
 const router = Router();
 
@@ -21,7 +22,7 @@ const router = Router();
  * @param {string} phoneNumber - User's phone number
  * @returns {object} Phone validation result
  */
-router.post('/check-phone', checkPhoneNumber);
+router.post('/check-phone',authLimiter, checkPhoneNumber);
 
 /**
  * POST /auth/send-otp
@@ -29,7 +30,7 @@ router.post('/check-phone', checkPhoneNumber);
  * @param {string} phoneNumber - Recipient phone number
  * @returns {object} OTP sent confirmation
  */
-router.post('/send-otp', sendOTP);
+router.post('/send-otp', authLimiter, sendOTP);
 
 /**
  * POST /auth/verify-otp
@@ -38,7 +39,7 @@ router.post('/send-otp', sendOTP);
  * @param {string} otp - OTP code to verify
  * @returns {object} Verification result with token
  */
-router.post('/verify-otp', verifyOTP);
+router.post('/verify-otp', authLimiter, verifyOTP);
 
 /**
  * POST /auth/complete-registration
@@ -46,7 +47,7 @@ router.post('/verify-otp', verifyOTP);
  * @param {object} userData - User data to complete registration
  * @returns {object} Registered user with auth token
  */
-router.post('/complete-registration', completeRegistration);
+router.post('/complete-registration', authLimiter, completeRegistration);
 
 /**
  * POST /auth/signup
@@ -54,7 +55,7 @@ router.post('/complete-registration', completeRegistration);
  * @param {object} adminData - Admin email and password
  * @returns {object} Created admin user and auth token
  */
-router.post('/signup', adminSignup);
+router.post('/signup', authLimiter, adminSignup);
 
 /**
  * POST /auth/login
@@ -63,7 +64,7 @@ router.post('/signup', adminSignup);
  * @param {string} password - Admin password
  * @returns {object} Admin user and auth token (200)
  */
-router.post('/login', adminLogin);
+router.post('/login', authLimiter, adminLogin);
 
 /**
  * GET /auth/me

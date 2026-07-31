@@ -72,12 +72,25 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 // Limit requests from same API
-const limiter = rateLimit({
-  max: 100,
-  windowMs: 60 * 60 * 1000,
-  message: 'Too many requests from this IP, please try again in an hour!',
+// const limiter = rateLimit({
+//   max: 100,
+//   windowMs: 60 * 60 * 1000,
+//   message: 'Too many requests from this IP, please try again in an hour!',
+// });
+// app.use('/api', limiter);
+
+
+export const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: process.env.NODE_ENV === "production" ? 5 : 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many login or OTP attempts. Please try again in 15 minutes.",
+  },
 });
-app.use('/api', limiter);
+
 
 // Body parser, reading data from body into req.body
 // 10mb covers base64-encoded store logo uploads (frontend caps raw file at
