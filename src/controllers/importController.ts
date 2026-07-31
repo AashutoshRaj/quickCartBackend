@@ -41,6 +41,7 @@ interface ValidationError {
 interface ImportResult {
   total: number;
   success: number;
+  updated: number;
   duplicates: number;
   failed: number;
   errors: ValidationError[];
@@ -110,6 +111,15 @@ const checkDuplicate = async (
   }
 
   return false;
+};
+
+const findExistingProduct = async (row: ImportedRow, storeId: string) => {
+  const conditions: Array<Record<string, string>> = [];
+  if (row.barcode?.trim()) conditions.push({ barcode: row.barcode.trim() });
+  if (row.sku?.trim()) conditions.push({ sku: row.sku.trim() });
+  if (conditions.length === 0) return null;
+
+  return Product.findOne({ storeId, $or: conditions });
 };
 
 /**
@@ -221,6 +231,7 @@ export const importProducts = async (
     const result: ImportResult = {
       total: rows.length,
       success: 0,
+      updated: 0,
       duplicates: 0,
       failed: 0,
       errors: [],
@@ -238,8 +249,26 @@ export const importProducts = async (
         continue;
       }
 
-      const isDuplicate = await checkDuplicate(row, storeId);
-      if (isDuplicate) {
+      const existingProduct = await findExistingProduct(row, storeId);
+      if (existingProduct) {
+        const parsedStock = row.stock === undefined || row.stock === ''
+          ? null
+          : Number.parseInt(String(row.stock), 10);
+
+        if (parsedStock !== null && Number.isInteger(parsedStock) && parsedStock >= 0) {
+          await Product.updateOne(
+            { _id: existingProduct._id, storeId },
+            { $set: { stock: parsedStock } }
+          );
+          result.updated++;
+          result.skipped.push({
+            row: rowIndex,
+            reason: 'Existing product stock updated',
+            data: row,
+          });
+          continue;
+        }
+
         result.duplicates++;
         result.skipped.push({
           row: rowIndex,
@@ -311,7 +340,7 @@ export const importProducts = async (
         ...result,
         processingTimeMs,
       },
-      message: `Imported ${result.success} products. ${result.duplicates} duplicates skipped. ${result.failed} records failed.`,
+      message: `Imported ${result.success} products, updated ${result.updated} existing stocks. ${result.duplicates} duplicates skipped. ${result.failed} records failed.`,
     });
   } catch (err) {
     const processingTimeMs = Date.now() - startTime;

@@ -13,6 +13,13 @@ const router = Router();
 router.get('/barcode/:barcode', productController.getProductByBarcode);
 
 /**
+ * GET /products/categories
+ * Get category summaries for the authenticated store.
+ */
+router.get('/categories', protect, productController.getCategories);
+router.get('/summary', protect, productController.getProductSummary);
+
+/**
  * GET /products
  * Get all products with pagination and filtering
  * @query {number} page - Page number (default: 1)

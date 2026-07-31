@@ -161,6 +161,7 @@ export interface IOrder extends Document {
   total: number;
   totalAmount?: number;
   status: 'pending' | 'completed' | 'cancelled' | 'refunded' | 'exited';
+  currency?: string;
   paymentMethod: 'card' | 'upi' | 'wallet' | 'cash';
   paymentStatus: 'pending' | 'completed' | 'failed';
   paymentId?: string;

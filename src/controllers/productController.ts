@@ -5,6 +5,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import Product from '../models/productModel.ts';
+import ImportHistory from '../models/importHistoryModel.ts';
 import AppError from '../utils/appError.ts';
 import { getAuthenticatedStoreId } from '../utils/getAuthenticatedStore.ts';
 import type { IProduct, CreateProductRequest } from '../types/index';
@@ -37,6 +38,141 @@ interface DeleteProductResponse {
   status: string;
   data: null;
 }
+
+interface ProductCategorySummary {
+  name: string;
+  productCount: number;
+  inventoryUnits: number;
+  activeProducts: number;
+  inactiveProducts: number;
+}
+
+interface CategoryListResponse {
+  status: string;
+  data: { categories: ProductCategorySummary[] };
+}
+
+/**
+ * Retrieves category summaries for the authenticated store.
+ * Categories are derived from the existing Product.category string field.
+ */
+export const getCategories = async (
+  req: Request,
+  res: Response<CategoryListResponse>,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const storeId = await getAuthenticatedStoreId(req);
+    const categories = await Product.aggregate<ProductCategorySummary>([
+      { $match: { storeId } },
+      {
+        $group: {
+          _id: { $ifNull: ['$category', 'Uncategorized'] },
+          productCount: { $sum: 1 },
+          inventoryUnits: { $sum: { $ifNull: ['$stock', 0] } },
+          activeProducts: {
+            $sum: { $cond: [{ $eq: ['$status', 'active'] }, 1, 0] },
+          },
+          inactiveProducts: {
+            $sum: { $cond: [{ $ne: ['$status', 'active'] }, 1, 0] },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          name: '$_id',
+          productCount: 1,
+          inventoryUnits: 1,
+          activeProducts: 1,
+          inactiveProducts: 1,
+        },
+      },
+      { $sort: { name: 1 } },
+    ]);
+
+    res.status(200).json({
+      status: 'success',
+      data: { categories },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+interface ProductSummaryResponse {
+  status: string;
+  data: {
+    totalProducts: number;
+    activeProducts: number;
+    outOfStock: number;
+    categories: number;
+    lastImportDate: string | null;
+    inventoryValue: number;
+  };
+}
+
+export const getProductSummary = async (
+  req: Request,
+  res: Response<ProductSummaryResponse>,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const storeId = await getAuthenticatedStoreId(req);
+    const summary = await Product.aggregate<{
+      totalProducts: number;
+      activeProducts: number;
+      outOfStock: number;
+      inventoryValue: number;
+    }>([
+      { $match: { storeId } },
+      {
+        $group: {
+          _id: null,
+          totalProducts: { $sum: 1 },
+          activeProducts: {
+            $sum: { $cond: [{ $eq: ['$status', 'active'] }, 1, 0] },
+          },
+          outOfStock: {
+            $sum: { $cond: [{ $lte: ['$stock', 0] }, 1, 0] },
+          },
+          inventoryValue: {
+            $sum: { $multiply: [{ $ifNull: ['$stock', 0] }, { $ifNull: ['$price', 0] }] },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          totalProducts: 1,
+          activeProducts: 1,
+          outOfStock: 1,
+          inventoryValue: 1,
+        },
+      },
+    ]);
+
+    const categories = await Product.distinct('category', { storeId }).then((items) => items.filter(Boolean).length);
+    const lastImport = await ImportHistory.findOne({ storeId, importStatus: 'completed' })
+      .sort({ createdAt: -1 })
+      .select('createdAt')
+      .lean();
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        totalProducts: summary?.[0]?.totalProducts ?? 0,
+        activeProducts: summary?.[0]?.activeProducts ?? 0,
+        outOfStock: summary?.[0]?.outOfStock ?? 0,
+        categories,
+        lastImportDate: lastImport?.createdAt?.toISOString() ?? null,
+        inventoryValue: summary?.[0]?.inventoryValue ?? 0,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
 
 /**
  * Retrieves all products with pagination and search functionality
@@ -73,6 +209,7 @@ export const getAllProducts = async (
 
     const category = (req.query.category as string) || '';
     const status = (req.query.status as string) || '';
+    const stockStatus = (req.query.stockStatus as string) || '';
     const skip = (page - 1) * limit;
     const storeId = await getAuthenticatedStoreId(req);
 
@@ -93,6 +230,22 @@ export const getAllProducts = async (
 
     if (status) {
       query.status = status;
+    }
+
+    if (stockStatus) {
+      switch (stockStatus) {
+        case 'in-stock':
+          query.stock = { $gt: 10 };
+          break;
+        case 'low-stock':
+          query.stock = { $gt: 0, $lte: 10 };
+          break;
+        case 'out-of-stock':
+          query.stock = 0;
+          break;
+        default:
+          break;
+      }
     }
 
     const total = await Product.countDocuments(query);

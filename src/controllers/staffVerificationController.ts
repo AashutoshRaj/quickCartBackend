@@ -164,6 +164,8 @@ export const verifyExitQr = async (req: Request, res: Response, next: NextFuncti
     }
 
     const order = resolution.order;
+    const store = await Store.findOne({ storeId: actor.storeId }).select('currency').lean();
+    const currency = store?.currency || 'USD';
     const customer = await User.findById(order.customerId).select('name');
 
     const items = await Promise.all(
@@ -190,6 +192,7 @@ export const verifyExitQr = async (req: Request, res: Response, next: NextFuncti
         paymentStatus: order.paymentStatus,
         paidAt: order.paidAt,
         totalAmount: order.total,
+        currency,
         itemsCount: order.items.length,
         items,
       },

@@ -3,6 +3,7 @@ import {
   createCheckoutSession,
   getOrderBySession,
   completePayment,
+  cancelCheckout,
   exitOrder,
 } from '../../controllers/checkoutController.ts';
 import { protect } from '../../controllers/authController.ts';
@@ -33,6 +34,13 @@ router.get('/order/:sessionId', getOrderBySession);
  * @returns {object} Completed order (200)
  */
 router.post('/complete', protect, completePayment);
+
+/**
+ * POST /checkout/cancel/:sessionId
+ * Cancel a pending checkout. No stock is released because stock is decremented
+ * only after successful payment completion.
+ */
+router.post('/cancel/:sessionId', protect, cancelCheckout);
 
 /**
  * POST /checkout/exit/:sessionId

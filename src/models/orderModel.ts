@@ -38,6 +38,11 @@ const orderSchema = new Schema<IOrder>(
     storeLogo: {
       type: String,
     },
+    currency: {
+      type: String,
+      enum: ['USD', 'EUR', 'GBP', 'INR', 'JPY', 'AUD', 'CAD'],
+      default: 'USD',
+    },
     items: [
       {
         productId: String,

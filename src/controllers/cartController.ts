@@ -65,6 +65,17 @@ const recalculateTotals = (cartDoc: ICart): ICart => {
   return cartDoc;
 };
 
+const stockError = (productName: string, availableStock: number): AppError => {
+  if (availableStock <= 0) {
+    return new AppError(`${productName} is out of stock.`, 409);
+  }
+
+  return new AppError(
+    `Only ${availableStock} item${availableStock === 1 ? '' : 's'} available for ${productName}.`,
+    409
+  );
+};
+
 /**
  * Retrieves the active cart for the current user and store
  * @param req - Express request with authenticated user
@@ -155,7 +166,7 @@ export const addToCart = async (
     }
 
     if (Number(product.stock || 0) < quantity) {
-      return next(new AppError('Requested quantity exceeds available stock.', 400));
+      return next(stockError(product.name, Number(product.stock || 0)));
     }
 
     const session = await mongoose.startSession();
@@ -176,7 +187,7 @@ export const addToCart = async (
           const newQuantity = cart.items[existingItemIndex].quantity + quantity;
 
           if (newQuantity > Number(product.stock || 0)) {
-            throw new AppError('Requested quantity exceeds available stock.', 400);
+            throw stockError(product.name, Number(product.stock || 0));
           }
 
           cart.items[existingItemIndex].quantity = newQuantity;
@@ -263,7 +274,7 @@ export const updateCartQuantity = async (
     }
 
     if (Number(product.stock || 0) < quantity) {
-      return next(new AppError('Requested quantity exceeds available stock.', 400));
+      return next(stockError(product.name, Number(product.stock || 0)));
     }
 
     const session = await mongoose.startSession();
@@ -341,7 +352,7 @@ export const increaseQuantity = async (
 
         const newQuantity = item.quantity + 1;
         if (newQuantity > Number(product.stock || 0)) {
-          throw new AppError('Requested quantity exceeds available stock.', 400);
+          throw stockError(product.name, Number(product.stock || 0));
         }
 
         item.quantity = newQuantity;

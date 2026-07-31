@@ -5,6 +5,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import Stripe from 'stripe';
+import mongoose from 'mongoose';
 import Cart from '../models/cartModel.ts';
 import Order from '../models/orderModel.ts';
 import Product from '../models/productModel.ts';
@@ -128,9 +129,11 @@ export const createCheckoutSession = async (
       return next(new AppError('Cart contains products from a different store. Please clear cart and start over.', 409));
     }
 
+    const currencyCode = (storeDoc.currency || 'USD').toLowerCase();
+
     const line_items = cart.items.map((item: ICartItem) => ({
       price_data: {
-        currency: 'inr',
+        currency: currencyCode,
         product_data: {
           name: item.productName,
           ...(getValidImageUrl(item.productImage)
@@ -174,6 +177,7 @@ export const createCheckoutSession = async (
       storeId,
       storeName: storeDoc.name,
       storeAddress: storeDoc.address,
+      currency: storeDoc.currency || 'USD',
       items: cart.items.map((item: ICartItem) => ({
         productId: item.productId,
         name: item.productName,
@@ -255,26 +259,110 @@ export const completePayment = async (
       return next(new AppError('Session ID is required.', 400));
     }
 
-    const order = await Order.findOneAndUpdate(
-      { sessionId },
-      {
-        status: 'completed',
-        paymentStatus: 'completed',
-        completedAt: new Date(),
-        paidAt: new Date(),
-      },
-      { new: true }
-    );
+    const customerId = req.user?._id;
+    const session = await mongoose.startSession();
+    let completedOrder: IOrder | null = null;
 
-    if (!order) {
-      return next(new AppError('Order not found.', 404));
+    try {
+      await session.withTransaction(async () => {
+        const order = await Order.findOne({ sessionId, customerId }).session(session);
+
+        if (!order) {
+          throw new AppError('Order not found.', 404);
+        }
+
+        // Payment success pages can be revisited. Do not decrement stock twice.
+        if (order.paymentStatus === 'completed' || order.status === 'completed') {
+          completedOrder = order.toObject() as IOrder;
+          return;
+        }
+
+        if (order.status !== 'pending' || order.paymentStatus !== 'pending') {
+          throw new AppError('This order is no longer available for payment completion.', 409);
+        }
+
+        for (const item of order.items) {
+          const quantity = Number(item.quantity || 0);
+          if (quantity < 1) continue;
+
+          const updatedProduct = await Product.findOneAndUpdate(
+            {
+              _id: item.productId,
+              storeId: order.storeId,
+              status: { $ne: 'discontinued' },
+              stock: { $gte: quantity },
+            },
+            { $inc: { stock: -quantity } },
+            { new: true, session }
+          );
+
+          if (!updatedProduct) {
+            const currentProduct = await Product.findOne({
+              _id: item.productId,
+              storeId: order.storeId,
+            }).select('name stock').session(session).lean();
+            const available = Number(currentProduct?.stock || 0);
+            throw new AppError(
+              available > 0
+                ? `Only ${available} item${available === 1 ? '' : 's'} available for ${item.name || 'this product'}.`
+                : `${item.name || 'This product'} is out of stock.`,
+              409
+            );
+          }
+        }
+
+        order.status = 'completed';
+        order.paymentStatus = 'completed';
+        order.completedAt = new Date();
+        order.paidAt = new Date();
+        await order.save({ session });
+        completedOrder = order.toObject() as IOrder;
+      });
+    } finally {
+      await session.endSession();
     }
 
     res.status(200).json({
       status: 'success',
       message: 'Payment completed',
-      data: order,
+      data: completedOrder as IOrder,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Cancels a pending checkout without changing inventory.
+ * Stock is only decremented after payment completion, so a pending cancellation
+ * releases no stock and is safe to retry.
+ */
+export const cancelCheckout = async (
+  req: Request<{ sessionId: string }, OrderResponse>,
+  res: Response<OrderResponse>,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { sessionId } = req.params;
+    const customerId = req.user?._id;
+
+    if (!sessionId) {
+      return next(new AppError('Session ID is required.', 400));
+    }
+
+    const order = await Order.findOneAndUpdate(
+      { sessionId, customerId, status: 'pending', paymentStatus: 'pending' },
+      { status: 'cancelled', cancelledAt: new Date() },
+      { new: true }
+    );
+
+    if (!order) {
+      const existingOrder = await Order.findOne({ sessionId, customerId });
+      if (!existingOrder) return next(new AppError('Order not found.', 404));
+      return res.status(200).json({ status: 'success', message: 'Checkout already finalized.', data: existingOrder });
+    }
+
+    res.status(200).json({ status: 'success', message: 'Checkout cancelled.', data: order });
   } catch (error) {
     next(error);
   }
