@@ -12,7 +12,7 @@ import {
   getAdminMe,
   adminLogout,
 } from '../../controllers/adminAuthController.ts';
-import { authLimiter } from '../../app.ts';
+import { authLimiter } from '../../middleware/authLimiter.ts';
 
 const router = Router();
 
@@ -22,7 +22,7 @@ const router = Router();
  * @param {string} phoneNumber - User's phone number
  * @returns {object} Phone validation result
  */
-router.post('/check-phone',authLimiter, checkPhoneNumber);
+router.post('/check-phone', authLimiter, checkPhoneNumber);
 
 /**
  * POST /auth/send-otp
