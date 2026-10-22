@@ -13,6 +13,7 @@ import Store from '../models/storeModel.ts';
 import AppError from '../utils/appError.ts';
 import type { ICart, ICartItem, IOrder } from '../types/index.ts';
 import { normalizeCurrencyCode } from '../utils/currency.ts';
+import { signExitQrToken } from '../utils/exitQrToken.ts';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
   apiVersion: '2026-06-24.dahlia',
@@ -81,7 +82,7 @@ interface CheckoutResponse {
 interface OrderResponse {
   status: string;
   message?: string;
-  data: IOrder;
+  data: unknown;
 }
 
 /**
@@ -230,7 +231,17 @@ export const getOrderBySession = async (
       return next(new AppError('Session ID is required.', 400));
     }
 
-    const order = await Order.findOne({ sessionId }).lean();
+    const customerId = req.user?._id;
+    if (!customerId) {
+      return next(new AppError('You must be logged in to view this receipt.', 401));
+    }
+
+    const order = await Order.findOne({
+      sessionId,
+      customerId,
+      paymentStatus: 'completed',
+      status: { $in: ['completed', 'exited'] },
+    }).lean();
 
     if (!order) {
       return next(new AppError('Order not found.', 404));
@@ -238,7 +249,10 @@ export const getOrderBySession = async (
 
     res.status(200).json({
       status: 'success',
-      data: order as IOrder,
+      data: {
+        ...(order as IOrder),
+        exitQrToken: signExitQrToken(sessionId),
+      },
     });
   } catch (error) {
     next(error);

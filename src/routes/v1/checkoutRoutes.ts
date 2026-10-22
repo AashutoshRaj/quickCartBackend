@@ -24,7 +24,7 @@ router.post('/session', protect, createCheckoutSession);
  * @param {string} sessionId - Checkout session ID
  * @returns {object} Order details (200)
  */
-router.get('/order/:sessionId', getOrderBySession);
+router.get('/order/:sessionId', protect, getOrderBySession);
 
 /**
  * POST /checkout/complete
