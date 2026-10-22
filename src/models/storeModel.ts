@@ -77,8 +77,8 @@ const storeSchema = new Schema<IStore>(
     currency: {
       type: String,
       required: [true, 'Store must have a currency'],
-      enum: ['USD', 'EUR', 'GBP', 'INR', 'JPY', 'AUD', 'CAD'],
-      default: 'USD',
+      enum: ['AED', 'INR'],
+      default: 'AED',
     },
     timezone: {
       type: String,

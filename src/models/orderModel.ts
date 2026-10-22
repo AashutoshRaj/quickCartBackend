@@ -40,8 +40,8 @@ const orderSchema = new Schema<IOrder>(
     },
     currency: {
       type: String,
-      enum: ['USD', 'EUR', 'GBP', 'INR', 'JPY', 'AUD', 'CAD'],
-      default: 'USD',
+      enum: ['AED', 'INR'],
+      default: 'AED',
     },
     items: [
       {

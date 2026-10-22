@@ -198,7 +198,7 @@ export interface IStore extends Document {
   postalCode?: string;
   phoneNumber: string;
   description?: string;
-  currency: 'USD' | 'EUR' | 'GBP' | 'INR' | 'JPY' | 'AUD' | 'CAD';
+  currency: 'AED' | 'INR';
   timezone: string;
   businessHours?: IBusinessHours[];
   status: 'active' | 'inactive' | 'closed';
@@ -364,7 +364,7 @@ export interface CreateStoreRequest {
   postalCode?: string;
   phoneNumber: string;
   description?: string;
-  currency?: 'USD' | 'EUR' | 'GBP' | 'INR' | 'JPY' | 'AUD' | 'CAD';
+  currency?: 'AED' | 'INR';
   timezone?: string;
   businessHours?: IBusinessHours[];
 }

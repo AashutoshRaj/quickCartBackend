@@ -21,13 +21,17 @@ import type {
 } from '../types/index';
 
 /**
- * Normalizes Indian phone numbers to E.164 format
- * @param phone - Phone number input (10 digits or 12 with country code)
+ * Normalizes phone numbers to E.164 format.
+ * E.164 values from the client are preserved, while 10-digit legacy values
+ * continue to default to India for compatibility with older clients.
+ * @param phone - Phone number input (E.164 or legacy 10-digit Indian number)
  * @returns Normalized phone number in E.164 format or null
  */
-const normalizeIndianPhoneNumber = (phone: unknown): string | null => {
-  const digits = String(phone || '').replace(/\D/g, '');
+const normalizePhoneNumber = (phone: unknown): string | null => {
+  const value = String(phone || '').trim();
+  const digits = value.replace(/\D/g, '');
 
+  if (value.startsWith('+') && digits.length >= 8 && digits.length <= 15) return `+${digits}`;
   if (digits.length === 10) return `+91${digits}`;
   if (digits.length === 12 && digits.startsWith('91')) return `+${digits}`;
 
@@ -105,10 +109,10 @@ export const checkPhoneNumber = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const phoneNumber = normalizeIndianPhoneNumber(req.body.phone || req.body.phoneNumber);
+    const phoneNumber = normalizePhoneNumber(req.body.phone || req.body.phoneNumber);
 
     if (!phoneNumber) {
-      return next(new AppError('Please provide a valid 10-digit phone number.', 400));
+      return next(new AppError('Please provide a valid phone number.', 400));
     }
 
     const user = await User.findOne({ phoneNumber }).select('_id');
@@ -137,10 +141,10 @@ export const sendOTP = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const phoneNumber = normalizeIndianPhoneNumber(req.body.phone || req.body.phoneNumber);
+    const phoneNumber = normalizePhoneNumber(req.body.phone || req.body.phoneNumber);
 
     if (!phoneNumber) {
-      return next(new AppError('Please provide a valid 10-digit phone number.', 400));
+      return next(new AppError('Please provide a valid phone number.', 400));
     }
 
     await client.verify.v2.services(process.env.TWILIO_VERIFY_SERVICE_SID as string).verifications.create({
@@ -175,7 +179,7 @@ export const verifyOTP = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const phoneNumber = normalizeIndianPhoneNumber(req.body.phone || req.body.phoneNumber);
+    const phoneNumber = normalizePhoneNumber(req.body.phone || req.body.phoneNumber);
     const otp = String(req.body.otp || req.body.code || '').trim();
 
     if (!phoneNumber || !otp) {

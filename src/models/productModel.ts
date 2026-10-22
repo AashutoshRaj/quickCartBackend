@@ -66,8 +66,8 @@ const productSchema = new Schema<IProduct>(
     },
     currency: {
       type: String,
-      default: 'USD',
-      enum: ['USD', 'EUR', 'GBP', 'INR', 'JPY', 'AUD', 'CAD'],
+      default: 'AED',
+      enum: ['AED', 'INR'],
     },
     storeId: {
       type: String,

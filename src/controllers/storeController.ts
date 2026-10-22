@@ -8,6 +8,7 @@ import Store from '../models/storeModel.ts';
 import User from '../models/userModel.ts';
 import AppError from '../utils/appError.ts';
 import { generateQRCodeDataURL } from '../utils/qrCodeGenerator.ts';
+import { normalizeCurrencyCode } from '../utils/currency.ts';
 import type { IStore, CreateStoreRequest } from '../types/index';
 
 /**
@@ -406,7 +407,7 @@ export const getStoreProfile = async (
           country: '',
           postalCode: '',
           description: '',
-          currency: 'USD',
+          currency: 'AED',
           timezone: 'UTC',
           storeId: `store_${Date.now()}`,
           status: 'active',
@@ -461,7 +462,7 @@ export const getStoreProfile = async (
               country: '',
               postalCode: '',
               description: '',
-              currency: 'USD',
+              currency: 'AED',
               timezone: 'UTC',
               status: 'active',
             },
@@ -558,7 +559,7 @@ export const saveStoreProfile = async (
       store.country = storeData.country || store.country;
       store.postalCode = storeData.postalCode || store.postalCode;
       store.description = storeData.description || store.description;
-      store.currency = storeData.currency || store.currency;
+      store.currency = normalizeCurrencyCode(storeData.currency || store.currency);
       store.timezone = storeData.timezone || store.timezone;
       store.logo = storeData.logo !== undefined ? storeData.logo : store.logo;
       if (emailToUse) store.email = emailToUse;
@@ -597,7 +598,7 @@ export const saveStoreProfile = async (
         country: storeData.country || '',
         postalCode: storeData.postalCode || '',
         description: storeData.description || '',
-        currency: storeData.currency || 'USD',
+        currency: normalizeCurrencyCode(storeData.currency),
         timezone: storeData.timezone || 'UTC',
         logo: storeData.logo || null,
         // Never trust a client-supplied storeId - always generate server-side

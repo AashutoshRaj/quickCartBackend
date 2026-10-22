@@ -12,6 +12,7 @@ import Product from '../models/productModel.ts';
 import Store from '../models/storeModel.ts';
 import AppError from '../utils/appError.ts';
 import type { ICart, ICartItem, IOrder } from '../types/index.ts';
+import { normalizeCurrencyCode } from '../utils/currency.ts';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
   apiVersion: '2026-06-24.dahlia',
@@ -129,7 +130,7 @@ export const createCheckoutSession = async (
       return next(new AppError('Cart contains products from a different store. Please clear cart and start over.', 409));
     }
 
-    const currencyCode = (storeDoc.currency || 'USD').toLowerCase();
+    const currencyCode = normalizeCurrencyCode(storeDoc.currency).toLowerCase();
 
     const line_items = cart.items.map((item: ICartItem) => ({
       price_data: {
@@ -177,7 +178,7 @@ export const createCheckoutSession = async (
       storeId,
       storeName: storeDoc.name,
       storeAddress: storeDoc.address,
-      currency: storeDoc.currency || 'USD',
+      currency: normalizeCurrencyCode(storeDoc.currency),
       items: cart.items.map((item: ICartItem) => ({
         productId: item.productId,
         name: item.productName,

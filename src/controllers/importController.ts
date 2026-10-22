@@ -290,7 +290,7 @@ export const importProducts = async (
         category: row.category?.trim(),
         unit: row.unit?.trim() || 'piece',
         tax: row.tax ? parseFloat(row.tax as string) : 0,
-        currency: row.currency?.toUpperCase() || 'USD',
+        currency: row.currency?.toUpperCase() === 'INR' ? 'INR' : 'AED',
         image: row.image?.trim() || '',
         stock: row.stock ? parseInt(row.stock as string) : 0,
         status: (row.status as any) || 'active',

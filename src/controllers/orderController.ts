@@ -8,17 +8,17 @@ import Order from '../models/orderModel.ts';
 import AppError from '../utils/appError.ts';
 import type { IOrder } from '../types/index.ts';
 
-const SUPPORTED_CURRENCIES = ['USD', 'EUR', 'GBP', 'INR', 'JPY', 'AUD', 'CAD', 'AED'] as const;
+const SUPPORTED_CURRENCIES = ['AED', 'INR'] as const;
 
 type CurrencyCode = (typeof SUPPORTED_CURRENCIES)[number];
 
 const normalizeCurrencyCode = (currency?: string): CurrencyCode => {
   if (!currency || typeof currency !== 'string') {
-    return 'USD';
+    return 'AED';
   }
 
   const normalized = currency.toUpperCase();
-  return SUPPORTED_CURRENCIES.includes(normalized as CurrencyCode) ? (normalized as CurrencyCode) : 'USD';
+  return SUPPORTED_CURRENCIES.includes(normalized as CurrencyCode) ? (normalized as CurrencyCode) : 'AED';
 };
 
 const formatOrderCurrency = (value: number, currency?: string, maximumFractionDigits = 2): string => {
@@ -205,7 +205,7 @@ export const downloadInvoice = async (
  * @returns Buffer containing invoice content
  */
 function generateInvoiceContent(order: Record<string, unknown>): Buffer {
-  const orderCurrency = (order.currency as string) || 'USD';
+  const orderCurrency = normalizeCurrencyCode(order.currency as string);
   const items = (order.items || []) as Array<{
     name?: string;
     productName?: string;

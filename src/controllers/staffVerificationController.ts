@@ -14,6 +14,7 @@ import SecurityGuard from '../models/securityGuardModel.ts';
 import ExitVerification from '../models/exitVerificationModel.ts';
 import AppError from '../utils/appError.ts';
 import { resolveExitQrPayload } from '../utils/exitQrToken.ts';
+import { normalizeCurrencyCode } from '../utils/currency.ts';
 
 /**
  * How long after payment an exit QR remains valid for verification
@@ -165,7 +166,7 @@ export const verifyExitQr = async (req: Request, res: Response, next: NextFuncti
 
     const order = resolution.order;
     const store = await Store.findOne({ storeId: actor.storeId }).select('currency').lean();
-    const currency = store?.currency || 'USD';
+    const currency = normalizeCurrencyCode(store?.currency);
     const customer = await User.findById(order.customerId).select('name');
 
     const items = await Promise.all(
