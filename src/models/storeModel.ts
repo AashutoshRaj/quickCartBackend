@@ -80,6 +80,12 @@ const storeSchema = new Schema<IStore>(
       enum: ['AED', 'INR'],
       default: 'AED',
     },
+    taxRate: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: 5,
+    },
     timezone: {
       type: String,
       required: [true, 'Store must have a timezone'],

@@ -87,6 +87,17 @@ const cartSchema = new Schema<ICart>(
       default: 0,
       min: 0,
     },
+    taxRate: {
+      type: Number,
+      default: 5,
+      min: 0,
+      max: 100,
+    },
+    taxExclusiveAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     discount: {
       type: Number,
       default: 0,

@@ -28,6 +28,11 @@ interface StoresListResponse {
   data: { stores: IStore[] };
 }
 
+const normalizeTaxRate = (value?: number): number => {
+  const rate = Number(value);
+  return Number.isFinite(rate) && rate >= 0 && rate <= 100 ? rate : 5;
+};
+
 /**
  * Response type for delete endpoint
  */
@@ -190,6 +195,7 @@ export const scanStorePublic = async (
       logo: store.logo || null,
       address: store.address,
       currency: store.currency,
+      taxRate: store.taxRate,
       timezone: store.timezone,
       status: store.status,
     };
@@ -408,6 +414,7 @@ export const getStoreProfile = async (
           postalCode: '',
           description: '',
           currency: 'AED',
+          taxRate: 5,
           timezone: 'UTC',
           storeId: `store_${Date.now()}`,
           status: 'active',
@@ -463,6 +470,7 @@ export const getStoreProfile = async (
               postalCode: '',
               description: '',
               currency: 'AED',
+              taxRate: 5,
               timezone: 'UTC',
               status: 'active',
             },
@@ -560,6 +568,7 @@ export const saveStoreProfile = async (
       store.postalCode = storeData.postalCode || store.postalCode;
       store.description = storeData.description || store.description;
       store.currency = normalizeCurrencyCode(storeData.currency || store.currency);
+      store.taxRate = normalizeTaxRate(storeData.taxRate ?? store.taxRate);
       store.timezone = storeData.timezone || store.timezone;
       store.logo = storeData.logo !== undefined ? storeData.logo : store.logo;
       if (emailToUse) store.email = emailToUse;
@@ -599,6 +608,7 @@ export const saveStoreProfile = async (
         postalCode: storeData.postalCode || '',
         description: storeData.description || '',
         currency: normalizeCurrencyCode(storeData.currency),
+        taxRate: normalizeTaxRate(storeData.taxRate),
         timezone: storeData.timezone || 'UTC',
         logo: storeData.logo || null,
         // Never trust a client-supplied storeId - always generate server-side

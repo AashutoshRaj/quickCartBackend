@@ -127,6 +127,8 @@ export interface ICart extends Document {
   totalItems: number;
   subtotal: number;
   tax: number;
+  taxRate: number;
+  taxExclusiveAmount: number;
   discount: number;
   grandTotal: number;
   status: 'active' | 'checked_out';
@@ -157,6 +159,8 @@ export interface IOrder extends Document {
   items: IOrderItem[];
   subtotal: number;
   tax: number;
+  taxRate: number;
+  taxExclusiveAmount: number;
   discount: number;
   total: number;
   totalAmount?: number;
@@ -199,6 +203,7 @@ export interface IStore extends Document {
   phoneNumber: string;
   description?: string;
   currency: 'AED' | 'INR';
+  taxRate?: number;
   timezone: string;
   businessHours?: IBusinessHours[];
   status: 'active' | 'inactive' | 'closed';
@@ -365,6 +370,7 @@ export interface CreateStoreRequest {
   phoneNumber: string;
   description?: string;
   currency?: 'AED' | 'INR';
+  taxRate?: number;
   timezone?: string;
   businessHours?: IBusinessHours[];
 }

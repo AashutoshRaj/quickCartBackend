@@ -163,14 +163,17 @@ export const createCheckoutSession = async (
     });
 
     // Calculate order totals
-    const TAX_RATE = 0.05;
+    const taxRate = Number.isFinite(Number(storeDoc.taxRate)) ? Number(storeDoc.taxRate) : 5;
     const subtotal = cart.items.reduce(
       (sum: number, item: ICartItem) => sum + (item.price * item.quantity),
       0
     );
-    const tax = Number((subtotal * TAX_RATE).toFixed(2));
     const discount = Number(cart.discount || 0);
-    const total = Number((subtotal + tax - discount).toFixed(2));
+    const taxableGross = Math.max(0, subtotal - discount);
+    const taxExclusiveAmount = Number((taxableGross / (1 + taxRate / 100)).toFixed(2));
+    const tax = Number((taxableGross - taxExclusiveAmount).toFixed(2));
+    // Product prices already include VAT. Do not add tax to this total.
+    const total = Number(taxableGross.toFixed(2));
 
     const order = await Order.create({
       sessionId: session.id,
@@ -188,6 +191,8 @@ export const createCheckoutSession = async (
       })),
       subtotal: Number(subtotal.toFixed(2)),
       tax,
+      taxRate,
+      taxExclusiveAmount,
       discount,
       total,
       totalAmount: total,

@@ -7,10 +7,11 @@ import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import Cart from '../models/cartModel.ts';
 import Product from '../models/productModel.ts';
+import Store from '../models/storeModel.ts';
 import AppError from '../utils/appError.ts';
 import type { ICart, ICartItem } from '../types/index';
 
-const TAX_RATE = 0.05;
+const DEFAULT_TAX_RATE = 5;
 
 /**
  * Response type for cart operations
@@ -50,15 +51,21 @@ const getStoreId = (req: Request): string => {
  * @param cartDoc - Cart document
  * @returns Updated cart document
  */
-const recalculateTotals = (cartDoc: ICart): ICart => {
+const recalculateTotals = async (cartDoc: ICart, storeId: string): Promise<ICart> => {
   const subtotal = cartDoc.items.reduce((sum, item) => sum + (item.subtotal || 0), 0);
   const totalItems = cartDoc.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
-  const tax = Number((subtotal * TAX_RATE).toFixed(2));
+  const store = await Store.findOne({ storeId }).select('taxRate').lean();
+  const taxRate = Number.isFinite(Number(store?.taxRate)) ? Number(store?.taxRate) : DEFAULT_TAX_RATE;
   const discount = Number(cartDoc.discount || 0);
-  const grandTotal = Number((subtotal + tax - discount).toFixed(2));
+  const taxableGross = Math.max(0, subtotal - discount);
+  const taxExclusiveAmount = Number((taxableGross / (1 + taxRate / 100)).toFixed(2));
+  const tax = Number((taxableGross - taxExclusiveAmount).toFixed(2));
+  const grandTotal = Number(taxableGross.toFixed(2));
 
   cartDoc.totalItems = totalItems;
   cartDoc.subtotal = Number(subtotal.toFixed(2));
+  cartDoc.taxRate = taxRate;
+  cartDoc.taxExclusiveAmount = taxExclusiveAmount;
   cartDoc.tax = tax;
   cartDoc.grandTotal = grandTotal;
 
@@ -92,13 +99,20 @@ export const getCart = async (
     const customerId = req.user?._id;
     const storeId = getStoreId(req);
 
-    const cart = await Cart.findOne({ customerId, storeId, status: 'active' }).lean();
+    const cart = await Cart.findOne({ customerId, storeId, status: 'active' });
+
+    if (cart) {
+      await recalculateTotals(cart, storeId);
+      await cart.save();
+    }
 
     const payload: Partial<ICart> = {
       items: [],
       totalItems: 0,
       subtotal: 0,
       tax: 0,
+      taxRate: DEFAULT_TAX_RATE,
+      taxExclusiveAmount: 0,
       discount: 0,
       grandTotal: 0,
       status: 'active',
@@ -110,6 +124,8 @@ export const getCart = async (
       payload.totalItems = cart.totalItems || 0;
       payload.subtotal = cart.subtotal || 0;
       payload.tax = cart.tax || 0;
+      payload.taxRate = cart.taxRate ?? DEFAULT_TAX_RATE;
+      payload.taxExclusiveAmount = cart.taxExclusiveAmount || 0;
       payload.discount = cart.discount || 0;
       payload.grandTotal = cart.grandTotal || 0;
       payload.status = cart.status || 'active';
@@ -206,7 +222,7 @@ export const addToCart = async (
           });
         }
 
-        recalculateTotals(cart);
+        await recalculateTotals(cart, storeId);
         await cart.save({ session });
       });
 
@@ -219,6 +235,8 @@ export const addToCart = async (
         totalItems: updatedCart?.totalItems || 0,
         subtotal: updatedCart?.subtotal || 0,
         tax: updatedCart?.tax || 0,
+        taxRate: updatedCart?.taxRate ?? DEFAULT_TAX_RATE,
+        taxExclusiveAmount: updatedCart?.taxExclusiveAmount || 0,
         discount: updatedCart?.discount || 0,
         grandTotal: updatedCart?.grandTotal || 0,
         status: updatedCart?.status || 'active',
@@ -293,7 +311,7 @@ export const updateCartQuantity = async (
 
         item.quantity = quantity;
         item.subtotal = Number((item.price * quantity).toFixed(2));
-        recalculateTotals(cart);
+        await recalculateTotals(cart, storeId);
         await cart.save({ session });
       });
 
@@ -357,7 +375,7 @@ export const increaseQuantity = async (
 
         item.quantity = newQuantity;
         item.subtotal = Number((item.price * newQuantity).toFixed(2));
-        recalculateTotals(cart);
+        await recalculateTotals(cart, storeId);
         await cart.save({ session });
       });
 
@@ -416,7 +434,7 @@ export const decreaseQuantity = async (
           item.subtotal = Number((item.price * nextQuantity).toFixed(2));
         }
 
-        recalculateTotals(cart);
+        await recalculateTotals(cart, storeId);
         await cart.save({ session });
       });
 
@@ -460,7 +478,7 @@ export const removeFromCart = async (
         }
 
         cart.items = cart.items.filter((entry) => String(entry.productId) !== String(productId));
-        recalculateTotals(cart);
+        await recalculateTotals(cart, storeId);
         await cart.save({ session });
       });
 
@@ -506,6 +524,8 @@ export const clearCart = async (
         cart.totalItems = 0;
         cart.subtotal = 0;
         cart.tax = 0;
+        cart.taxRate = DEFAULT_TAX_RATE;
+        cart.taxExclusiveAmount = 0;
         cart.discount = 0;
         cart.grandTotal = 0;
         await cart.save({ session });

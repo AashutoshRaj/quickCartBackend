@@ -239,8 +239,9 @@ ITEMS PURCHASED
 ${itemsText}
 
 ORDER SUMMARY
-Subtotal: ${formatOrderCurrency(((order.subtotal || 0) as number), orderCurrency)}
-Tax: ${formatOrderCurrency(((order.tax || 0) as number), orderCurrency)}
+Subtotal (VAT included): ${formatOrderCurrency(((order.subtotal || 0) as number), orderCurrency)}
+VAT included (${(order.taxRate ?? 5) as number}%): ${formatOrderCurrency(((order.tax || 0) as number), orderCurrency)}
+Amount excluding VAT: ${formatOrderCurrency(((order.taxExclusiveAmount ?? ((order.subtotal || 0) as number) - ((order.tax || 0) as number)) as number), orderCurrency)}
 Discount: -${formatOrderCurrency(((order.discount || 0) as number), orderCurrency)}
 ---
 TOTAL: ${formatOrderCurrency(((order.total || 0) as number), orderCurrency)}
